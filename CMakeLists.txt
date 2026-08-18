@@ -16,7 +16,7 @@ set(CMAKE_AUTOUIC ON)
 
 option(POLIVEX_BUILD_TESTS "Build Polivex tests" ON)
 
-find_package(Qt6 6.5 REQUIRED COMPONENTS Widgets)
+find_package(Qt6 6.4 REQUIRED COMPONENTS Widgets)
 
 add_subdirectory(src)
 

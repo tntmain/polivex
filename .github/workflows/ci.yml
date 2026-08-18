@@ -45,12 +45,12 @@ jobs:
 
       - name: Configure
         shell: msys2 {0}
-        run: cmake --preset msys2-ucrt64
+        run: cmake --preset default -DCMAKE_PREFIX_PATH="$MSYSTEM_PREFIX"
 
       - name: Build
         shell: msys2 {0}
-        run: cmake --build --preset msys2-ucrt64
+        run: cmake --build --preset default
 
       - name: Test
         shell: msys2 {0}
-        run: ctest --preset msys2-ucrt64
+        run: ctest --preset default
