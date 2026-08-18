@@ -10,16 +10,15 @@ The product direction is inspired by beginner-friendly tools such as Tinkercad, 
 
 ## Project Status
 
-This repository is in the early planning stage.
-The community, architecture, and roadmap are being defined before core implementation starts.
+This repository is in the early prototyping stage.
+The initial desktop shell, modular structure, and contributor workflow are in place.
 
-## Initial Scope
+## Current Technical Direction
 
-- 2D sketching workspace for simple constrained drawings
-- turning sketches into 3D geometry
-- beginner-friendly UI and onboarding
-- cross-platform desktop support for Linux and Windows
-- open development with contributor-friendly workflows
+- C++20
+- CMake
+- Qt 6 Widgets for the first desktop shell
+- layered architecture to keep domain logic away from UI code
 
 ## Repository Guide
 
@@ -32,24 +31,53 @@ The community, architecture, and roadmap are being defined before core implement
 - [Architecture Notes](docs/ARCHITECTURE.md)
 - [Figma Handoff Guide](docs/DESIGN_HANDOFF.md)
 
-## Recommended Technical Direction
+## Project Layout
 
-The current recommended baseline is:
+- `src/core`: pure domain and shared project logic
+- `src/app`: application session and orchestration layer
+- `src/ui`: Qt windows, panels, tools, and presentation
+- `tests`: lightweight test executables and future test suites
 
-- C++20
-- CMake
-- Qt 6 for cross-platform desktop UI
-- a modular core so geometry, sketching, and UI can evolve independently
+Current dependency direction:
 
-This is a proposal, not a final lock-in.
+- `ui -> app -> core`
+
+`core` should stay free from Qt UI concerns.
+
+## Build
+
+### Windows with MSYS2 UCRT64
+
+```powershell
+cmake --preset msys2-ucrt64
+cmake --build --preset msys2-ucrt64
+ctest --preset msys2-ucrt64
+```
+
+### Generic local configure
+
+If Qt 6 is installed in a custom location, point CMake at it with `CMAKE_PREFIX_PATH`.
+
+```powershell
+cmake -S . -B build/default -G Ninja -DCMAKE_PREFIX_PATH=C:\Qt\6.x.x\msvc2022_64
+cmake --build build/default
+ctest --test-dir build/default --output-on-failure
+```
+
+## What Exists Today
+
+- a Qt desktop shell with a main window and placeholder viewport
+- a minimal `ProjectDocument` domain object
+- an `ApplicationSession` layer between UI and core
+- a first core test executable
+- GitHub Actions CI for Linux and Windows
 
 ## What Comes Next
 
-1. Define the application architecture and core domain model.
-2. Create the app shell and rendering prototype.
-3. Build a minimal sketch workflow.
-4. Add sketch constraints and simple feature generation.
-5. Open the first contributor-friendly milestones.
+1. Define the sketch document model in `core`.
+2. Add command and tool abstractions in `app`.
+3. Replace the viewport placeholder with a real 2D sketch scene.
+4. Introduce constraints, dimensions, and feature generation incrementally.
 
 ## License
 

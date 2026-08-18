@@ -1,0 +1,33 @@
+add_library(polivex_core STATIC
+    core/project_document.cpp
+    core/project_document.h
+)
+
+target_compile_features(polivex_core PUBLIC cxx_std_20)
+target_include_directories(polivex_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+
+add_library(polivex_app STATIC
+    app/application_session.cpp
+    app/application_session.h
+)
+
+target_compile_features(polivex_app PUBLIC cxx_std_20)
+target_include_directories(polivex_app PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(polivex_app PUBLIC polivex_core)
+
+add_library(polivex_ui STATIC
+    ui/main_window.cpp
+    ui/main_window.h
+    ui/viewport_placeholder.cpp
+    ui/viewport_placeholder.h
+)
+
+target_compile_features(polivex_ui PUBLIC cxx_std_20)
+target_include_directories(polivex_ui PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(polivex_ui PUBLIC Qt6::Widgets polivex_app)
+
+qt_add_executable(polivex
+    main.cpp
+)
+
+target_link_libraries(polivex PRIVATE Qt6::Widgets polivex_ui polivex_app)

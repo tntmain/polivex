@@ -15,54 +15,88 @@ Polivex should be a native desktop CAD application with:
 
 - language: C++20
 - build system: CMake
-- UI: Qt 6
+- UI: Qt 6 Widgets for the first shell
 - rendering: decide after viewport prototype
-- tests: unit tests from the start
+- tests: lightweight automated tests from the start
 
-## High-Level Modules
+## Module Layout
 
-### `app`
+### `src/core`
 
-Application startup, configuration, logging, and document lifecycle.
+Pure domain logic and shared project state.
+This layer should stay independent from Qt Widgets and desktop-specific UI concepts.
 
-### `ui`
+Examples:
 
-Main window, panels, toolbars, dialogs, and command wiring.
+- document model
+- sketch entities
+- parametric constraints
+- feature history state
+- shared IDs and utility types
 
-### `sketch`
+### `src/app`
 
-2D geometry, constraints, dimensions, snapping, and editing tools.
+Application orchestration between UI and domain logic.
+This layer coordinates active documents, commands, tools, and future undo/redo behavior.
 
-### `model`
+Examples:
 
-3D feature generation, model history, and regeneration logic.
+- application session
+- command dispatch
+- tool activation
+- document lifecycle
 
-### `core`
+### `src/ui`
 
-Shared data structures, identifiers, events, settings, and utilities.
+Desktop presentation layer built with Qt.
+This layer is allowed to depend on `app`, but should not absorb domain logic that belongs in `core`.
 
-### `io`
+Examples:
 
-Project file format, import/export, and persistence.
+- main window
+- dock panels
+- viewport widgets
+- dialogs
+- toolbars and menus
 
-## Suggested Early Priorities
+### `tests`
 
-1. Build a desktop shell with a viewport and tool system.
-2. Define a document model that can host sketches and later 3D features.
-3. Implement a minimal sketch engine before attempting full 3D workflows.
-4. Keep UI code separate from geometric logic from day one.
+Fast automated checks for the non-UI parts of the project first, then broader integration coverage later.
 
-## Architectural Principles
+## Dependency Rule
 
-- keep the geometry and UI layers separate
-- prefer explicit data flow
-- isolate platform-specific code
-- avoid over-engineering in the MVP
-- design for future undo/redo and history tracking
+Keep dependencies flowing in one direction:
+
+- `ui -> app -> core`
+
+Allowed:
+
+- `ui` can call `app`
+- `app` can call `core`
+
+Avoid:
+
+- `core` depending on `ui`
+- `core` knowing about widgets or windows
+- `ui` owning complex CAD rules directly
+
+## Why This Split Matters
+
+- sketch and modeling logic become easier to test
+- UI rewrites become less risky
+- future rendering changes stay more isolated
+- contributors can work in smaller areas without touching everything
+
+## Suggested Near-Term Additions
+
+1. Add a command system in `src/app`.
+2. Introduce sketch entities and constraints in `src/core`.
+3. Add a viewport scene abstraction before full rendering work.
+4. Keep file IO and import/export in a future dedicated `io` module.
 
 ## Open Questions
 
 - which geometry kernel to adopt or build
-- whether to use Qt Widgets, Qt Quick, or a hybrid UI
+- whether to stay on Qt Widgets or move to a hybrid Widgets and Quick approach
 - which persistence format should be used first
 - what the first plugin boundary should be
