@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Support and questions
+    url: https://github.com/tntmain/polivex/discussions
+    about: Use Discussions for questions, ideas, and general support if enabled.
