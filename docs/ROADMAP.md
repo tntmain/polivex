@@ -45,6 +45,7 @@ Goal: make simple 3D geometry from a closed sketch.
 Goal: beginners should be able to discover the workflow without a tutorial open on a second monitor.
 
 - Clearer tool grouping and states
+- [x] English and Russian interface switching without restarting
 - Keyboard shortcuts
 - Sample files and short onboarding flows
 - Useful error messages

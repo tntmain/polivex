@@ -16,7 +16,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y ninja-build qt6-base-dev
+          sudo apt-get install -y ninja-build qt6-base-dev qt6-tools-dev
 
       - name: Configure
         run: cmake --preset default
@@ -42,6 +42,7 @@ jobs:
             mingw-w64-ucrt-x86_64-ninja
             mingw-w64-ucrt-x86_64-gcc
             mingw-w64-ucrt-x86_64-qt6-base
+            mingw-w64-ucrt-x86_64-qt6-tools
 
       - name: Configure
         shell: msys2 {0}

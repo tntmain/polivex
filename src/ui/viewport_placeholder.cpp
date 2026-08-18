@@ -1,11 +1,13 @@
 #include "ui/viewport_placeholder.h"
 
+#include <QCoreApplication>
 #include <QFrame>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QVBoxLayout>
 
-namespace polivex::ui {
+namespace polivex {
+namespace ui {
 
 ViewportPlaceholder::ViewportPlaceholder(QWidget* parent)
     : QWidget(parent)
@@ -18,11 +20,19 @@ ViewportPlaceholder::ViewportPlaceholder(QWidget* parent)
     frame->setObjectName("viewportFrame");
 
     auto* frame_layout = new QHBoxLayout(frame);
-    auto* message = new QLabel("Viewport placeholder\n2D sketch and 3D scene will live here.", frame);
-    message->setAlignment(Qt::AlignCenter);
-    frame_layout->addWidget(message);
+    message_ = new QLabel(frame);
+    message_->setAlignment(Qt::AlignCenter);
+    frame_layout->addWidget(message_);
 
     layout->addWidget(frame);
+    retranslate_ui();
 }
 
-}  // namespace polivex::ui
+void ViewportPlaceholder::retranslate_ui()
+{
+    message_->setText(QCoreApplication::translate(
+        "polivex::ui::ViewportPlaceholder", "Viewport placeholder\n2D sketch and 3D scene will live here."));
+}
+
+}  // namespace ui
+}  // namespace polivex

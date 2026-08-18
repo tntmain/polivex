@@ -42,7 +42,7 @@ ui  ->  app  ->  core
 
 ## Build it
 
-You need CMake 3.26+, a C++20 compiler, Ninja, and Qt 6.4 or newer with the Widgets module.
+You need CMake 3.26+, a C++20 compiler, Ninja, and Qt 6.4 or newer with the Widgets and LinguistTools modules.
 
 ### Windows: MSYS2 UCRT64
 
@@ -52,7 +52,8 @@ Open the **MSYS2 UCRT64** terminal, install the required packages, then configur
 pacman -S --needed mingw-w64-ucrt-x86_64-cmake \
   mingw-w64-ucrt-x86_64-ninja \
   mingw-w64-ucrt-x86_64-gcc \
-  mingw-w64-ucrt-x86_64-qt6-base
+  mingw-w64-ucrt-x86_64-qt6-base \
+  mingw-w64-ucrt-x86_64-qt6-tools
 
 cmake --preset msys2-ucrt64
 cmake --build --preset msys2-ucrt64
@@ -64,7 +65,7 @@ ctest --preset msys2-ucrt64
 Install Qt 6 development packages, CMake, Ninja, and a C++ compiler using your distribution's package manager. On Ubuntu or Debian:
 
 ```bash
-sudo apt install cmake ninja-build g++ qt6-base-dev
+sudo apt install cmake ninja-build g++ qt6-base-dev qt6-tools-dev
 cmake --preset default
 cmake --build --preset default
 ctest --preset default
@@ -86,6 +87,7 @@ ctest --test-dir build/local --output-on-failure
 - [Contributing guide](CONTRIBUTING.md) — how to make a change or open a pull request
 - [Branching model](docs/BRANCHING.md) — how branches and releases work
 - [Figma handoff](docs/DESIGN_HANDOFF.md) — how a Figma design becomes a Qt interface
+- [Translations and resources](resources/README.md) — how interface languages and application assets are organised
 - [Security policy](SECURITY.md) and [support](SUPPORT.md)
 
 ## License

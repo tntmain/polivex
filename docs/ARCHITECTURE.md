@@ -34,6 +34,10 @@ The Qt presentation layer: windows, panels, dialogs, toolbars, and viewport widg
 
 Fast checks for `core` and `app` first. Integration and UI coverage can follow once the workflow is real.
 
+### `resources`
+
+Files packaged with the application. `resources/i18n` contains Qt translation sources; `resources/assets` is for icons, images, sample files, and similar content.
+
 ## Dependency rule
 
 ```text

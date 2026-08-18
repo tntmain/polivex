@@ -11,6 +11,10 @@ class ViewportPlaceholder : public QWidget {
 
 public:
     explicit ViewportPlaceholder(QWidget* parent = nullptr);
+    void retranslate_ui();
+
+private:
+    QLabel* message_ = nullptr;
 };
 
 }  // namespace polivex::ui

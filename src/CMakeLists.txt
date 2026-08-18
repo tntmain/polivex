@@ -31,3 +31,16 @@ qt_add_executable(polivex
 )
 
 target_link_libraries(polivex PRIVATE Qt6::Widgets polivex_ui polivex_app)
+
+qt_add_translations(polivex
+    TS_FILES
+        "${PROJECT_SOURCE_DIR}/resources/i18n/polivex_en.ts"
+        "${PROJECT_SOURCE_DIR}/resources/i18n/polivex_ru.ts"
+    RESOURCE_PREFIX "/i18n"
+    SOURCES
+        main.cpp
+        ui/main_window.cpp
+        ui/main_window.h
+        ui/viewport_placeholder.cpp
+        ui/viewport_placeholder.h
+)
