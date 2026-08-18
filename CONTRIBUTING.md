@@ -1,110 +1,79 @@
 # Contributing to Polivex
 
-Thank you for your interest in contributing.
-Polivex is intended to grow as a welcoming open-source CAD project, so clarity, respect, and maintainability matter as much as shipping features.
+Thanks for taking an interest in Polivex. This is an early project, so small improvements, sharp questions, tests, and honest feedback are all useful contributions.
 
-## Before You Start
+## Before writing code
 
-- read the [roadmap](docs/ROADMAP.md)
-- read the [branching model](docs/BRANCHING.md)
-- check whether a similar issue or proposal already exists
-- open an issue before starting large work
+- Read the [roadmap](docs/ROADMAP.md) and [architecture notes](docs/ARCHITECTURE.md).
+- Search existing issues and pull requests first.
+- For a large feature or a change to the geometry, file format, renderer, or dependencies, open an issue before investing time in code.
 
-## Good First Contributions
+## A normal contribution
 
-Early contributions are especially welcome in these areas:
+1. Pick or create an issue.
+2. Create a short-lived branch from `main`.
+3. Keep the change focused.
+4. Build and run relevant tests locally.
+5. Open a pull request and explain what changed.
 
-- repository structure and tooling
-- build system setup
-- documentation improvements
-- UI prototypes
-- sketch engine experiments
-- tests and CI
+## Branch names
 
-## Workflow
-
-1. Create or pick an issue.
-2. Create a branch from `main`.
-3. Make a focused change.
-4. Add or update tests when possible.
-5. Open a pull request using the repository template.
-
-## Branch Naming
-
-Use one of these prefixes:
-
-- `feat/<short-name>`
-- `fix/<short-name>`
-- `docs/<short-name>`
-- `refactor/<short-name>`
-- `build/<short-name>`
-
-Examples:
+Use a prefix that describes the work:
 
 - `feat/sketch-toolbar`
 - `fix/windows-build`
 - `docs/roadmap-update`
+- `refactor/document-api`
+- `build/qt-version-check`
 
-## Pull Request Rules
+The fuller branch policy is in [docs/BRANCHING.md](docs/BRANCHING.md).
 
-- keep PRs small and focused
-- explain the problem, solution, and tradeoffs
-- link the relevant issue
-- include screenshots or short recordings for UI work
-- avoid mixing refactors with feature work unless necessary
+## Pull requests
 
-## Coding Expectations
+Please keep one PR about one problem. Link its issue when there is one, mention trade-offs, and attach a screenshot or short recording for visible UI changes. Do not mix a broad refactor into a feature PR unless it is required for the feature.
 
-- prefer readable code over clever code
-- keep platform-specific code isolated
-- document non-obvious architectural decisions
-- avoid introducing dependencies without discussion
-- preserve a beginner-friendly user experience
+Before requesting review:
 
-## Comment Style
+- [ ] The project builds on your machine.
+- [ ] Relevant tests pass, or you explain why no test applies.
+- [ ] Documentation is updated when behaviour, setup, or workflow changed.
+- [ ] UI changes include a screenshot or recording.
 
-Comments should explain intent, constraints, or tradeoffs, not restate obvious code.
+## Code and comments
 
-- write comments in English
-- prefer short `//` comments near the relevant code
-- use `TODO:` for planned follow-up work
-- use `FIXME:` for known broken or unsafe behavior
-- use `NOTE:` for important context another contributor should not miss
-- use `///` only for API-level documentation when a type or function needs it
-- avoid block comments unless a longer explanation is genuinely necessary
-- do not leave commented-out code in the repository
+Prefer clear code over clever code. Keep platform-specific code in a small, obvious place. Do not add a dependency casually: discuss it first if it affects the build, licensing, or architecture.
+
+Comments are for intent, constraints, and trade-offs—not a translation of the line below them.
+
+- Write comments in English.
+- Use short `//` comments near the code they explain.
+- Use `TODO:` for planned work, `FIXME:` for known incorrect or unsafe behaviour, and `NOTE:` for context that must not be missed.
+- Use `///` only for public API documentation.
+- Remove commented-out code instead of leaving it in the repository.
+- A closing comment such as `// namespace polivex::ui` is fine when it makes a long file easier to scan.
 
 Good:
 
-- `// Keep UI state out of the geometry layer.`
-- `// TODO: Replace placeholder viewport with sketch scene.`
+```cpp
+// Keep UI state out of the geometry layer.
+// TODO: Replace the placeholder viewport with a sketch scene.
+```
 
-Avoid:
+Not useful:
 
-- `// increment i`
-- `// button click`
+```cpp
+// Increment i.
+++i;
+```
 
-Closing namespace comments such as `// namespace polivex::ui` are welcome in implementation files when they improve readability.
+## Commit messages
 
-## Commit Messages
+Use a short imperative summary. For example:
 
-Prefer short, descriptive commit messages such as:
-
-- `Add sketch document model skeleton`
-- `Fix CMake preset for Clang on Linux`
+- `Add sketch document skeleton`
+- `Fix MSYS2 build preset`
 - `Document branch protection rules`
 
-## Large Changes
+## Review culture
 
-Open a design discussion before starting work on:
-
-- geometry kernel changes
-- file format decisions
-- rendering architecture changes
-- dependency changes
-- major UX redesigns
-
-## Review Philosophy
-
-Reviews should improve the patch and help contributors succeed.
-Feedback should be specific, respectful, and actionable.
+Review the patch, not the person. Be direct, specific, and kind. The [Code of Conduct](CODE_OF_CONDUCT.md) applies everywhere the project is discussed.

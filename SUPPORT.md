@@ -1,20 +1,13 @@
 # Support
 
-## Where to Ask for Help
-
-- use GitHub Discussions for general questions, ideas, and product feedback
-- use GitHub Issues for confirmed bugs and concrete feature requests
-
-## What to Include
+Use GitHub Discussions for questions, ideas, and general feedback. Use GitHub Issues for reproducible bugs and concrete feature requests.
 
 When asking for help, include:
 
-- operating system
+- your operating system
 - compiler and version
-- steps to reproduce
-- logs, screenshots, or screen recordings if relevant
+- what you expected to happen and what actually happened
+- steps to reproduce the problem
+- logs, screenshots, or a recording when they help
 
-## Project Stage Note
-
-Polivex is currently in early planning and prototyping.
-Some support requests may be answered with design guidance rather than immediate fixes.
+Polivex is still in its prototype stage. Some questions will lead to a design discussion rather than an immediate fix—and that is useful too.

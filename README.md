@@ -1,85 +1,93 @@
 # Polivex
 
-Polivex is an open-source CAD application for Linux and Windows.
-The goal is to keep the product approachable for beginners while still being capable enough for real sketching and modeling workflows.
+<p align="center">
+  <strong>Simple CAD for ideas that deserve more than a sketch on a napkin.</strong><br>
+  An open-source desktop CAD application for Windows and Linux.
+</p>
 
-## Vision
+<p align="center">
+  <a href="https://github.com/tntmain/polivex/actions/workflows/ci.yml"><img src="https://github.com/tntmain/polivex/actions/workflows/ci.yml/badge.svg" alt="CI status"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MPL--2.0-brightgreen" alt="MPL 2.0 license"></a>
+  <img src="https://img.shields.io/badge/C%2B%2B-20-00599C?logo=c%2B%2B" alt="C++20">
+  <img src="https://img.shields.io/badge/Qt-6-41CD52?logo=qt" alt="Qt 6">
+  <img src="https://img.shields.io/badge/platform-Windows%20%7C%20Linux-4c8bf5" alt="Windows and Linux">
+</p>
 
-Polivex aims to make CAD feel simpler, cleaner, and easier to learn.
-The product direction is inspired by beginner-friendly tools such as Tinkercad, but with a native desktop workflow and a path toward more advanced sketch-based modeling.
+> Polivex is at the very beginning. It opens a window today; the part where it makes excellent CAD models is what we are building next.
 
-## Project Status
+## What Polivex is for
 
-This repository is in the early prototyping stage.
-The initial desktop shell, modular structure, and contributor workflow are in place.
+Polivex is meant to make the first steps in CAD feel less intimidating. The long-term workflow is simple: draw a 2D sketch, add dimensions and constraints, then turn it into a 3D model.
 
-## Current Technical Direction
+It is a native desktop application that can grow from a clear beginner workflow into a serious sketch-based modeler.
+
+## Current state
+
+The repository contains a working Qt desktop shell, a small application/core split, a test target, and CI for Linux and Windows. The viewport is still a placeholder and there are no modelling tools yet.
+
+## Technology
 
 - C++20
 - CMake
-- Qt 6 Widgets for the first desktop shell
-- layered architecture to keep domain logic away from UI code
+- Qt 6 Widgets
+- Windows and Linux
 
-## Repository Guide
+The code is split deliberately:
 
-- [Contributing Guide](CONTRIBUTING.md)
-- [Code of Conduct](CODE_OF_CONDUCT.md)
-- [Security Policy](SECURITY.md)
-- [Support](SUPPORT.md)
-- [Roadmap](docs/ROADMAP.md)
-- [Branching Model](docs/BRANCHING.md)
-- [Architecture Notes](docs/ARCHITECTURE.md)
-- [Figma Handoff Guide](docs/DESIGN_HANDOFF.md)
+```text
+ui  ->  app  ->  core
+```
 
-## Project Layout
+`core` owns CAD and document rules. `app` coordinates tools and documents. `ui` draws windows, panels, and controls. More details are in the [architecture notes](docs/ARCHITECTURE.md).
 
-- `src/core`: pure domain and shared project logic
-- `src/app`: application session and orchestration layer
-- `src/ui`: Qt windows, panels, tools, and presentation
-- `tests`: lightweight test executables and future test suites
+## Build it
 
-Current dependency direction:
+You need CMake 3.26+, a C++20 compiler, Ninja, and Qt 6.4 or newer with the Widgets module.
 
-- `ui -> app -> core`
+### Windows: MSYS2 UCRT64
 
-`core` should stay free from Qt UI concerns.
+Open the **MSYS2 UCRT64** terminal, install the required packages, then configure and run the project:
 
-## Build
+```bash
+pacman -S --needed mingw-w64-ucrt-x86_64-cmake \
+  mingw-w64-ucrt-x86_64-ninja \
+  mingw-w64-ucrt-x86_64-gcc \
+  mingw-w64-ucrt-x86_64-qt6-base
 
-### Windows with MSYS2 UCRT64
-
-```powershell
 cmake --preset msys2-ucrt64
 cmake --build --preset msys2-ucrt64
 ctest --preset msys2-ucrt64
 ```
 
-### Generic local configure
+### Linux
 
-If Qt 6 is installed in a custom location, point CMake at it with `CMAKE_PREFIX_PATH`.
+Install Qt 6 development packages, CMake, Ninja, and a C++ compiler using your distribution's package manager. On Ubuntu or Debian:
 
-```powershell
-cmake -S . -B build/default -G Ninja -DCMAKE_PREFIX_PATH=C:\Qt\6.x.x\msvc2022_64
-cmake --build build/default
-ctest --test-dir build/default --output-on-failure
+```bash
+sudo apt install cmake ninja-build g++ qt6-base-dev
+cmake --preset default
+cmake --build --preset default
+ctest --preset default
 ```
 
-## What Exists Today
+### Qt installed elsewhere
 
-- a Qt desktop shell with a main window and placeholder viewport
-- a minimal `ProjectDocument` domain object
-- an `ApplicationSession` layer between UI and core
-- a first core test executable
-- GitHub Actions CI for Linux and Windows
+Tell CMake where Qt lives:
 
-## What Comes Next
+```powershell
+cmake -S . -B build/local -G Ninja -DCMAKE_PREFIX_PATH=C:\Qt\6.x.x\msvc2022_64
+cmake --build build/local
+ctest --test-dir build/local --output-on-failure
+```
 
-1. Define the sketch document model in `core`.
-2. Add command and tool abstractions in `app`.
-3. Replace the viewport placeholder with a real 2D sketch scene.
-4. Introduce constraints, dimensions, and feature generation incrementally.
+## Where to look next
+
+- [Roadmap](docs/ROADMAP.md) — what we plan to build and in what order
+- [Contributing guide](CONTRIBUTING.md) — how to make a change or open a pull request
+- [Branching model](docs/BRANCHING.md) — how branches and releases work
+- [Figma handoff](docs/DESIGN_HANDOFF.md) — how a Figma design becomes a Qt interface
+- [Security policy](SECURITY.md) and [support](SUPPORT.md)
 
 ## License
 
-This project is licensed under the Mozilla Public License 2.0.
-See [LICENSE](LICENSE) for details.
+Polivex is distributed under the [Mozilla Public License 2.0](LICENSE).

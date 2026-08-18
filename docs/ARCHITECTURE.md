@@ -1,102 +1,64 @@
-# Architecture Notes
+# Architecture notes
 
-This document defines the recommended starting direction for Polivex.
-It is meant to guide early implementation, not freeze the design forever.
+This is the starting shape of Polivex, not a constitution. Change it when evidence says we should, but keep the dependency direction simple while the project is young.
 
-## Product Shape
+## Product shape
 
-Polivex should be a native desktop CAD application with:
+Polivex is a native desktop CAD application: make a 2D sketch, then build a 3D model from it. The UI should stay approachable without putting CAD rules inside buttons and widgets.
 
-- a 2D sketching workflow
-- a 3D modeling workflow derived from sketches
-- a UI simple enough for beginners
+## Stack
 
-## Recommended Stack
+- C++20
+- CMake
+- Qt 6 Widgets for the desktop shell
+- Rendering choice after a viewport prototype
+- Automated tests from the start, beginning with non-UI code
 
-- language: C++20
-- build system: CMake
-- UI: Qt 6 Widgets for the first shell
-- rendering: decide after viewport prototype
-- tests: lightweight automated tests from the start
-
-## Module Layout
+## Modules
 
 ### `src/core`
 
-Pure domain logic and shared project state.
-This layer should stay independent from Qt Widgets and desktop-specific UI concepts.
+The domain layer. It must not know about Qt widgets, windows, or dock panels.
 
-Examples:
-
-- document model
-- sketch entities
-- parametric constraints
-- feature history state
-- shared IDs and utility types
+Examples: documents, sketch entities, constraints, feature history, IDs, and shared value types.
 
 ### `src/app`
 
-Application orchestration between UI and domain logic.
-This layer coordinates active documents, commands, tools, and future undo/redo behavior.
-
-Examples:
-
-- application session
-- command dispatch
-- tool activation
-- document lifecycle
+The application layer. It turns user intentions into changes to `core` and coordinates active documents, commands, tools, and later undo/redo.
 
 ### `src/ui`
 
-Desktop presentation layer built with Qt.
-This layer is allowed to depend on `app`, but should not absorb domain logic that belongs in `core`.
-
-Examples:
-
-- main window
-- dock panels
-- viewport widgets
-- dialogs
-- toolbars and menus
+The Qt presentation layer: windows, panels, dialogs, toolbars, and viewport widgets. It may use `app`, but it does not own geometry or modelling rules.
 
 ### `tests`
 
-Fast automated checks for the non-UI parts of the project first, then broader integration coverage later.
+Fast checks for `core` and `app` first. Integration and UI coverage can follow once the workflow is real.
 
-## Dependency Rule
+## Dependency rule
 
-Keep dependencies flowing in one direction:
+```text
+ui  ->  app  ->  core
+```
 
-- `ui -> app -> core`
+`ui` may call `app`; `app` may call `core`. The reverse directions are not allowed. In particular, keep `core` free of UI dependencies and keep complicated CAD decisions out of event handlers.
 
-Allowed:
+## Why keep this boundary
 
-- `ui` can call `app`
-- `app` can call `core`
+- Sketch and modelling logic stays easy to test.
+- Changing the UI or renderer is less dangerous.
+- Contributors can work on a smaller part of the codebase.
+- The project does not become one enormous `MainWindow` class.
 
-Avoid:
+## Next architectural decisions
 
-- `core` depending on `ui`
-- `core` knowing about widgets or windows
-- `ui` owning complex CAD rules directly
+1. Add a command system in `app`.
+2. Add sketch entities and constraints in `core`.
+3. Define a viewport scene abstraction before committing to a renderer.
+4. Add an `io` module when saving and import/export become substantial.
 
-## Why This Split Matters
+## Questions we have not decided yet
 
-- sketch and modeling logic become easier to test
-- UI rewrites become less risky
-- future rendering changes stay more isolated
-- contributors can work in smaller areas without touching everything
-
-## Suggested Near-Term Additions
-
-1. Add a command system in `src/app`.
-2. Introduce sketch entities and constraints in `src/core`.
-3. Add a viewport scene abstraction before full rendering work.
-4. Keep file IO and import/export in a future dedicated `io` module.
-
-## Open Questions
-
-- which geometry kernel to adopt or build
-- whether to stay on Qt Widgets or move to a hybrid Widgets and Quick approach
-- which persistence format should be used first
-- what the first plugin boundary should be
+- Geometry kernel: adopt one, wrap one, or build a small layer first?
+- Qt Widgets only, or a later Widgets/Quick hybrid?
+- First persistence format?
+- Whether plugins need a formal boundary at all?

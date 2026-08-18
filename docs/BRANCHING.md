@@ -1,50 +1,34 @@
-# Branching Model
+# Branching model
 
-Polivex uses a simple branch model designed for a small open-source team.
+Keep Git boring. `main` is the shared integration branch; everything else is a short-lived branch that comes back through a pull request.
 
-## Main Branches
+## Branches
 
-- `main`: always the latest stable integration branch
-- release branches: optional later, for example `release/0.2`
+- `main` contains the current working version of Polivex.
+- `release/0.2`-style branches may be added later when releases need maintenance.
 
-At the current stage, `main` is enough.
-Do not add a long-lived `develop` branch unless the team grows and the workflow actually needs it.
+There is no `develop` branch. Add one only if the team reaches a point where it solves a real problem.
 
-## Working Branches
+Create work branches from `main` using `feat/`, `fix/`, `docs/`, `refactor/`, or `build/`:
 
-Create short-lived branches from `main`:
+```text
+feat/sketch-toolbar
+fix/windows-build
+docs/roadmap-update
+```
 
-- `feat/...` for features
-- `fix/...` for bug fixes
-- `docs/...` for documentation
-- `refactor/...` for internal cleanup
-- `build/...` for tooling and CI
+## Merging
 
-## Merge Rules
+- Open a pull request into `main`.
+- Let CI pass before merging.
+- Ask for a review when another active maintainer is available.
+- Prefer squash merges for focused changes.
+- Do not push directly to `main` or force-push it.
 
-- merge through pull requests
-- no direct pushes to `main`
-- require at least one review when the project has active maintainers
-- require passing CI checks once CI exists
-- prefer squash merge for small focused changes
+## GitHub protection for `main`
 
-## Branch Protection
+Enable required pull requests, required status checks, and protection against force pushes and branch deletion. At the moment, the CI workflow is the check to require.
 
-Protect `main` with:
+## Releases
 
-- pull request required
-- force push disabled
-- branch deletion disabled
-- status checks required
-
-## Release Tags
-
-Use semantic version tags once releases start:
-
-- `v0.1.0`
-- `v0.2.0`
-- `v1.0.0`
-
-## Why This Model
-
-This model is easier for new contributors than Git Flow and usually works better for modern open-source projects with pull-request based development.
+When releases begin, use semantic version tags such as `v0.1.0`, `v0.2.0`, and `v1.0.0`.

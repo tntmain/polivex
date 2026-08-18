@@ -1,35 +1,27 @@
 # Code of Conduct
 
-## Our Standard
+Polivex is a place to build, learn, and discuss software together. Treat people with respect, even when the code review is about a missing semicolon for the third time.
 
-Polivex is committed to a respectful, welcoming, and constructive community.
-We expect contributors to communicate professionally, assume good intent, and help create an environment where people can learn and build together.
+## Expected behaviour
 
-## Expected Behavior
+- Be respectful and patient.
+- Critique ideas and code, never people.
+- Welcome newcomers and explain decisions when asked.
+- Assume good intent and resolve disagreements constructively.
 
-- be respectful and patient
-- give feedback on ideas and code, not on people
-- welcome newcomers
-- explain decisions clearly
-- resolve disagreements constructively
+## Unacceptable behaviour
 
-## Unacceptable Behavior
+- Harassment, intimidation, discrimination, or personal attacks.
+- Hostile or repeatedly disruptive behaviour in issues, reviews, or discussions.
+- Sharing private information without permission.
+- Deliberately making the project space unsafe or unwelcoming.
 
-- harassment, intimidation, or personal attacks
-- discriminatory language or behavior
-- repeated hostility in reviews or discussions
-- publishing private information without permission
-- deliberate disruption of the project community
+## Where this applies
 
-## Scope
-
-This policy applies to project spaces, including issues, pull requests, discussions, chat spaces, and community events connected to Polivex.
+This policy covers project issues, pull requests, discussions, chat spaces, and events connected to Polivex.
 
 ## Reporting
 
-If you experience or witness unacceptable behavior, contact the maintainers privately.
-If a dedicated contact address is created later, add it here.
+If you experience or witness unacceptable behaviour, contact a maintainer privately. A dedicated contact address will be added here when one is available.
 
-## Enforcement
-
-Project maintainers may edit, remove, or moderate content and participation when needed to protect the community.
+Maintainers may edit or remove content and moderate participation when necessary to protect the community.

@@ -1,20 +1,17 @@
-# Security Policy
+# Security policy
 
-## Reporting a Vulnerability
+## Reporting a vulnerability
 
-Please do not report security issues in public issues or pull requests.
+Please do not open a public issue or pull request for a security problem.
 
-Until a private security contact is created, report vulnerabilities directly to the maintainers through a private channel.
-If no private contact exists yet, create one before publishing stable builds.
+Contact a maintainer privately instead. Before stable releases are published, this repository will list a dedicated security contact here.
 
-## What to Include
+Include, when possible:
 
-- affected version or commit
-- platform and environment
-- reproduction steps
-- impact description
-- proof of concept if available
+- the affected version or commit
+- operating system and environment
+- steps to reproduce the problem
+- a description of the impact
+- a proof of concept
 
-## Response Goal
-
-The project should acknowledge a valid report quickly and coordinate a fix before public disclosure when possible.
+We will acknowledge valid reports, investigate them, and coordinate a fix before public disclosure where practical.

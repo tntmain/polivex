@@ -1,115 +1,47 @@
-# Design Handoff from Figma
+# Figma handoff
 
-Yes, you can transfer a design from Figma into the project, but not as a one-click full application conversion.
-For a desktop CAD app, Figma should be treated as a UI source, not as the source of business logic.
+Figma can give Polivex its visual language, but it cannot generate a finished CAD application. Treat it as the source of layout, components, and interaction rules; write the behaviour in C++.
 
-## Recommended Direction for Polivex
+## Our choice: Qt Widgets
 
-For Polivex, the recommended UI direction is `Qt Widgets`.
-That is the better fit for a classic desktop CAD application with menus, dock panels, inspectors, and a large central viewport.
+The main application shell uses Qt Widgets. It suits a desktop CAD app with menus, toolbars, dock panels, inspectors, and a large central viewport.
 
-Use Figma for visual design and component rules, then implement the result manually in Qt Widgets.
+Qt Quick/QML is still an option later for a highly animated or isolated screen. It is not the default for the CAD shell.
 
-`Qt Quick` remains a valid future option for highly animated or design-heavy surfaces, but it should not be the default path for the main CAD shell right now.
+## What comes from Figma
 
-## Best Practical Path
+- Layout and panel proportions
+- Spacing, colours, typography, and corner radii
+- Icons and image assets
+- Component states: normal, hover, pressed, selected, disabled
+- Toolbar grouping and interaction notes
 
-For a C++ desktop application, the cleanest route is:
+## What must be engineered
 
-1. design screens and components in Figma
-2. define spacing, typography, colors, states, and assets in Figma
-3. translate the design into Qt Widgets components
-4. connect those components to real application logic in C++
+- CAD commands and tool activation
+- Document and geometry models
+- Viewport rendering and snapping
+- Undo/redo
+- Saving, loading, and error handling
 
-## Recommended Workflow
+## Figma-to-Qt workflow
 
-### For Qt Widgets
+1. Design the window shell and its common components in Figma.
+2. Make a small design system: named colours, spacing scale, font sizes, icon sizes, and component states.
+3. Mark keyboard shortcuts, minimum window sizes, and dock behaviour in the design.
+4. Build the structure in Qt: `QMainWindow`, `QDockWidget`, `QToolBar`, status bar, and a central viewport widget.
+5. Build reusable widgets for repeated pieces such as inspector rows and panel headers.
+6. Apply visual styling with Qt palettes or stylesheets.
+7. Connect the widgets to `app` only after the UI structure is solid.
 
-- use Figma as the visual source of truth
-- build reusable widgets and view classes in Qt
-- export icons, images, and tokens from Figma
-- implement behavior manually in C++ and Qt
+## Useful mapping
 
-### For Qt Quick
+| Figma element | Qt Widgets implementation |
+| --- | --- |
+| App shell | `QMainWindow` |
+| Side panels | `QDockWidget` |
+| Command area | `QToolBar` and menus |
+| Main canvas | Custom `QWidget` / viewport class |
+| Inspector fields | Form layout or custom property widgets |
 
-If the project later adds a QML-based surface, Figma handoff is smoother there than with classic widget-based UI.
-That is useful for special screens, but it is not required for the main desktop shell.
-
-## Important Reality Check
-
-You can transfer:
-
-- layout
-- spacing
-- colors
-- typography
-- icons and assets
-- component states
-
-You cannot reliably transfer:
-
-- CAD logic
-- document model
-- geometry operations
-- undo/redo behavior
-- complex desktop interactions without manual engineering
-
-## Suggested Figma Rules
-
-- create a small design system early
-- use reusable components
-- define hover, pressed, selected, and disabled states
-- annotate interactions and shortcuts
-- keep desktop scaling in mind
-- define minimum window sizes and dock behavior
-
-## Practical Figma to Qt Widgets Pipeline
-
-1. Design the shell in Figma first.
-2. Break the shell into implementation regions:
-   toolbar, browser, inspector, status bar, viewport chrome.
-3. Export shared tokens:
-   colors, spacing, font sizes, corner radii, icon sizes.
-4. Implement layout structure in Qt first:
-   `QMainWindow`, `QDockWidget`, toolbars, status bar, central widget.
-5. Implement reusable view classes:
-   browser panel, inspector panel, viewport widget, future tool palettes.
-6. Apply visual styling last with Qt stylesheets or palette tuning.
-7. Connect widgets to `app` and `core` only after the shell matches the design.
-
-## What to Transfer from Figma
-
-- panel sizes and proportions
-- toolbar grouping
-- iconography
-- typography scale
-- spacing system
-- color tokens
-- interaction states
-
-## What to Engineer Separately
-
-- CAD commands
-- viewport rendering
-- snapping behavior
-- undo and redo
-- document structure
-- tool activation rules
-
-## Mapping Figma to Qt Widgets
-
-- app shell frame -> `QMainWindow`
-- left and right side panels -> `QDockWidget`
-- top command areas -> `QToolBar` and menus
-- central canvas area -> custom `QWidget` or viewport class
-- inspector rows -> form layouts or custom property widgets
-- reusable buttons and controls -> small custom widget subclasses when needed
-
-## For This Project
-
-If Polivex uses Qt 6, prefer one of these paths:
-
-- manual handoff from Figma into Qt Widgets components
-- limited QML prototyping only when a specific screen benefits from it
-
-The goal is to keep the main application shell solid, desktop-oriented, and easy to maintain while still letting design work guide the UI.
+Export icons and raster assets from Figma, but do not try to export the entire screen as code. A careful manual handoff will produce a UI that behaves like a desktop application instead of a screenshot with buttons.

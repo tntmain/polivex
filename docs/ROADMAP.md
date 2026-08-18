@@ -1,71 +1,67 @@
 # Roadmap
 
-This roadmap is intentionally phased.
-The goal is to reach a stable foundation before trying to build a full CAD suite.
+This is a direction, not a promise of dates. We will build the foundation first, then make sketching useful, then turn sketches into models. A CAD program is a large machine; skipping straight to the shiny buttons is how it becomes a large broken machine.
 
-## Phase 0: Project Foundation
+## 0. Foundation — in progress
 
-Status: active
+- [x] Repository, licence, contribution rules, and issue templates
+- [x] CMake build and CI for Linux and Windows
+- [x] Qt desktop shell
+- [x] Initial `ui -> app -> core` structure
+- [ ] Formatting and static-analysis rules
+- [ ] Logging and diagnostics
 
-- define scope and product principles
-- set up repository standards and contribution workflow
-- decide initial UI and application stack
-- establish CI, formatting, and testing basics
+## 1. Desktop shell
 
-## Phase 1: Desktop App Skeleton
+Goal: a dependable cross-platform application shell.
 
-Goal: a buildable cross-platform shell for Linux and Windows
+- Document lifecycle: create, open, save, close
+- Main window layout, docks, menus, and toolbars
+- Input and shortcut handling
+- Viewport abstraction
+- Basic undo/redo plumbing
 
-- application startup
-- window layout and dock system
-- viewport placeholder
-- document lifecycle
-- logging and diagnostics
-- input abstraction
+## 2. 2D sketching MVP
 
-## Phase 2: 2D Sketching MVP
+Goal: make and edit a useful sketch.
 
-Goal: a simple but real sketch workflow
+- Lines, rectangles, circles, and arcs
+- Selection, move, and delete
+- Snapping
+- Dimensions and basic constraints
+- Save and load sketch documents
 
-- line, rectangle, circle, arc tools
-- snapping
-- selection and transform basics
-- dimensions and basic constraints
-- save/load for sketch documents
+## 3. Parametric modelling MVP
 
-## Phase 3: Parametric Modeling MVP
+Goal: make simple 3D geometry from a closed sketch.
 
-Goal: create 3D geometry from sketches
+- Extrude and cut
+- One additional feature: revolve or sweep
+- Feature tree
+- Rebuild model history after an edit
 
-- extrusion from closed profiles
-- cut operation
-- simple revolve or sweep
-- feature tree basics
-- history-aware model regeneration
+## 4. Make it pleasant to use
 
-## Phase 4: Usability and Onboarding
+Goal: beginners should be able to discover the workflow without a tutorial open on a second monitor.
 
-Goal: make the app approachable
+- Clearer tool grouping and states
+- Keyboard shortcuts
+- Sample files and short onboarding flows
+- Useful error messages
+- Sensible defaults
 
-- cleaner tool discovery
-- keyboard shortcut system
-- tutorials and sample files
-- error messaging improvements
-- beginner-oriented defaults
+## 5. Grow the project
 
-## Phase 5: Open-Source Growth
+Goal: make it easy for more people to participate safely.
 
-Goal: turn the repository into a healthy contributor project
+- Good-first-issue labels and contributor onboarding
+- Release process and changelog
+- Documentation expansion
+- Decide whether extensions need a plugin boundary
 
-- contributor onboarding issues
-- documentation expansion
-- plugin or extension strategy
-- milestone planning
-- release process
+## Not part of the first release
 
-## Not in the First Version
-
-- advanced simulation
-- cloud collaboration
-- full enterprise PLM workflows
-- highly specialized manufacturing toolchains
+- Advanced simulation
+- Cloud collaboration
+- Enterprise PLM
+- Specialised manufacturing workflows

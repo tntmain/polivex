@@ -1,21 +1,17 @@
-## Summary
+## What changed
 
-Describe the change in a few sentences.
+Explain the problem and the change in a few short sentences.
 
 ## Related issue
 
-Link the issue this PR addresses.
+Closes #
 
-## What changed
+## How you checked it
 
-- 
+- [ ] Built the project locally
+- [ ] Ran relevant tests, or explained why none apply
+- [ ] Updated documentation where needed
 
-## Verification
+## UI changes
 
-- [ ] Built locally
-- [ ] Tests added or updated where practical
-- [ ] Documentation updated if needed
-
-## UI notes
-
-Add screenshots or recordings for visible UI changes.
+For visible changes, add a screenshot or short recording. Otherwise write `N/A`.
