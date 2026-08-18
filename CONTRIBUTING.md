@@ -61,6 +61,31 @@ Examples:
 - avoid introducing dependencies without discussion
 - preserve a beginner-friendly user experience
 
+## Comment Style
+
+Comments should explain intent, constraints, or tradeoffs, not restate obvious code.
+
+- write comments in English
+- prefer short `//` comments near the relevant code
+- use `TODO:` for planned follow-up work
+- use `FIXME:` for known broken or unsafe behavior
+- use `NOTE:` for important context another contributor should not miss
+- use `///` only for API-level documentation when a type or function needs it
+- avoid block comments unless a longer explanation is genuinely necessary
+- do not leave commented-out code in the repository
+
+Good:
+
+- `// Keep UI state out of the geometry layer.`
+- `// TODO: Replace placeholder viewport with sketch scene.`
+
+Avoid:
+
+- `// increment i`
+- `// button click`
+
+Closing namespace comments such as `// namespace polivex::ui` are welcome in implementation files when they improve readability.
+
 ## Commit Messages
 
 Prefer short, descriptive commit messages such as:
