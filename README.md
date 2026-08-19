@@ -17,6 +17,12 @@
   <img src="https://img.shields.io/badge/platform-Windows%20%7C%20Linux-4c8bf5" alt="Windows and Linux">
 </p>
 
+<p align="center">
+  <a href="https://t.me/polivexcadchat">
+    <img src="https://img.shields.io/badge/Telegram-Community-2CA5E0?logo=telegram&logoColor=white" alt="Telegram Community">
+  </a>
+</p>
+
 > Polivex is at the very beginning. It opens a window today; the part where it makes excellent designs is what we are building next.
 
 ## What Polivex is for
