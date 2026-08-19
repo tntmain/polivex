@@ -34,6 +34,7 @@ target_link_libraries(polivex_ui PUBLIC Qt6::Widgets polivex_app)
 
 qt_add_executable(polivex
     main.cpp
+    "${PROJECT_SOURCE_DIR}/resources/resources.qrc"
 )
 
 target_link_libraries(polivex PRIVATE Qt6::Widgets polivex_ui polivex_app)

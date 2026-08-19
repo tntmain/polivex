@@ -1,4 +1,5 @@
 #include <QApplication>
+#include <QIcon>
 #include <QSettings>
 #include <QTranslator>
 
@@ -10,6 +11,7 @@ int main(int argc, char* argv[])
     QApplication application(argc, argv);
     application.setApplicationName("Polivex");
     application.setOrganizationName("Polivex");
+    application.setWindowIcon(QIcon(":/assets/polivex_icon.svg"));
 
     QTranslator translator;
     const auto apply_language = [&application, &translator](const QString& locale) {
@@ -29,6 +31,7 @@ int main(int argc, char* argv[])
 
     polivex::app::ApplicationSession session;
     polivex::ui::MainWindow window(session);
+    window.setWindowIcon(application.windowIcon());
     window.set_current_language(initial_language);
 
     QObject::connect(&window, &polivex::ui::MainWindow::language_requested, &application,

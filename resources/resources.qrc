@@ -1,0 +1,5 @@
+<RCC>
+    <qresource prefix="/">
+        <file alias="assets/polivex_icon.svg">assets/polivex_icon.svg</file>
+    </qresource>
+</RCC>

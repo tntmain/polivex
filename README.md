@@ -1,4 +1,8 @@
-# Polivex
+<p align="center">
+  <img src="resources/assets/polivex_coin.svg" alt="Polivex logo" width="160">
+</p>
+
+<h1 align="center">Polivex</h1>
 
 <p align="center">
   <strong>Precise design and vector graphics in one desktop workspace.</strong><br>
