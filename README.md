@@ -1,8 +1,8 @@
 # Polivex
 
 <p align="center">
-  <strong>Simple CAD for ideas that deserve more than a sketch on a napkin.</strong><br>
-  An open-source desktop CAD application for Windows and Linux.
+  <strong>Precise design and vector graphics in one desktop workspace.</strong><br>
+  An open-source application for Windows and Linux.
 </p>
 
 <p align="center">
@@ -13,17 +13,25 @@
   <img src="https://img.shields.io/badge/platform-Windows%20%7C%20Linux-4c8bf5" alt="Windows and Linux">
 </p>
 
-> Polivex is at the very beginning. It opens a window today; the part where it makes excellent CAD models is what we are building next.
+> Polivex is at the very beginning. It opens a window today; the part where it makes excellent designs is what we are building next.
 
 ## What Polivex is for
 
-Polivex is meant to make the first steps in CAD feel less intimidating. The long-term workflow is simple: draw a 2D sketch, add dimensions and constraints, then turn it into a 3D model.
+Polivex brings two kinds of 2D work into one application: expressive vector graphics and precise CAD sketches. A document can begin as a clean vector composition or a dimensioned sketch, then grow into a 3D model when needed.
 
-It is a native desktop application that can grow from a clear beginner workflow into a serious sketch-based modeler.
+The aim is a clear beginner workflow with room to grow into a serious vector and sketch-based modelling tool.
+
+## Workspaces
+
+- **Vector** — paths, shapes, fills, strokes, layers, and SVG workflows.
+- **Sketch** — exact geometry, snapping, dimensions, and constraints.
+- **Model** — 3D features created from closed sketches.
+
+These workspaces share one document foundation but do not confuse their jobs: visual styling belongs to Vector, engineering rules belong to Sketch, and solid features belong to Model.
 
 ## Current state
 
-The repository contains a working Qt desktop shell, a small application/core split, a test target, and CI for Linux and Windows. The viewport is still a placeholder and there are no modelling tools yet.
+The repository contains a working Qt desktop shell, a small application/core split, a test target, translations, and CI for Linux and Windows. The viewport is still a placeholder and there are no editing tools yet.
 
 ## Technology
 
@@ -38,7 +46,7 @@ The code is split deliberately:
 ui  ->  app  ->  core
 ```
 
-`core` owns CAD and document rules. `app` coordinates tools and documents. `ui` draws windows, panels, and controls. More details are in the [architecture notes](docs/ARCHITECTURE.md).
+`core` owns document, vector, and CAD rules. `app` coordinates tools and documents. `ui` draws windows, panels, and controls. More details are in the [architecture notes](docs/ARCHITECTURE.md).
 
 ## Build it
 
@@ -84,9 +92,10 @@ ctest --test-dir build/local --output-on-failure
 ## Where to look next
 
 - [Roadmap](docs/ROADMAP.md) — what we plan to build and in what order
+- [Architecture notes](docs/ARCHITECTURE.md) — how the project is split into modules
+- [UI direction](docs/UI_DIRECTION.md) — how the Vector, Sketch, and Model workspaces fit together
 - [Contributing guide](CONTRIBUTING.md) — how to make a change or open a pull request
 - [Branching model](docs/BRANCHING.md) — how branches and releases work
-- [Figma handoff](docs/DESIGN_HANDOFF.md) — how a Figma design becomes a Qt interface
 - [Translations and resources](resources/README.md) — how interface languages and application assets are organised
 - [Security policy](SECURITY.md) and [support](SUPPORT.md)
 

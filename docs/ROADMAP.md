@@ -1,6 +1,6 @@
 # Roadmap
 
-This is a direction, not a promise of dates. We will build the foundation first, then make sketching useful, then turn sketches into models. A CAD program is a large machine; skipping straight to the shiny buttons is how it becomes a large broken machine.
+This is a direction, not a promise of dates. We will build the foundation first, then make vector editing and sketching useful, then turn sketches into models. A design application is a large machine; skipping straight to the shiny buttons is how it becomes a large broken machine.
 
 ## 0. Foundation — in progress
 
@@ -8,6 +8,8 @@ This is a direction, not a promise of dates. We will build the foundation first,
 - [x] CMake build and CI for Linux and Windows
 - [x] Qt desktop shell
 - [x] Initial `ui -> app -> core` structure
+- [x] English and Russian interface switching without restarting
+- [x] Shared viewport with XY grid, pan, zoom, camera presets, and a navigation cube
 - [ ] Formatting and static-analysis rules
 - [ ] Logging and diagnostics
 
@@ -17,23 +19,40 @@ Goal: a dependable cross-platform application shell.
 
 - Document lifecycle: create, open, save, close
 - Main window layout, docks, menus, and toolbars
+- Workspace switcher: Vector, Sketch, and Model
 - Input and shortcut handling
 - Viewport abstraction
 - Basic undo/redo plumbing
 
-## 2. 2D sketching MVP
+## 2. 2D vector and sketching MVP
 
-Goal: make and edit a useful sketch.
+Goal: make and edit useful 2D designs without mixing visual and engineering workflows.
 
+### Vector workspace
+
+- [x] Rectangle creation on the shared 2D scene
+- [x] Select and move a rectangle
+- [x] Fill colour and opacity for a vector rectangle
+- Paths, rectangles, circles, and Bézier curves
+- Resize and transform
+- Stroke controls
+- Layers and grouping
+- SVG import and export
+
+### Sketch workspace
+
+- [x] Rectangle creation on the XY sketch plane
+- [x] Sketch plane model prepared for XY, XZ, and YZ
 - Lines, rectangles, circles, and arcs
 - Selection, move, and delete
-- Snapping
+- Units: millimetres, centimetres, and inches
+- Grid snapping and object snapping
 - Dimensions and basic constraints
 - Save and load sketch documents
 
 ## 3. Parametric modelling MVP
 
-Goal: make simple 3D geometry from a closed sketch.
+Goal: make simple 3D geometry from a closed CAD sketch.
 
 - Extrude and cut
 - One additional feature: revolve or sweep
@@ -45,7 +64,6 @@ Goal: make simple 3D geometry from a closed sketch.
 Goal: beginners should be able to discover the workflow without a tutorial open on a second monitor.
 
 - Clearer tool grouping and states
-- [x] English and Russian interface switching without restarting
 - Keyboard shortcuts
 - Sample files and short onboarding flows
 - Useful error messages

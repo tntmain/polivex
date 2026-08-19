@@ -4,7 +4,9 @@ This is the starting shape of Polivex, not a constitution. Change it when eviden
 
 ## Product shape
 
-Polivex is a native desktop CAD application: make a 2D sketch, then build a 3D model from it. The UI should stay approachable without putting CAD rules inside buttons and widgets.
+Polivex is a native desktop application for vector graphics, precise 2D sketching, and later 3D modelling. The UI should stay approachable without putting geometry or CAD rules inside buttons and widgets.
+
+Vector objects and CAD sketch entities may share low-level geometry such as points, paths, transforms, and IDs. Their higher-level rules remain separate: fills, strokes, and layers belong to vector graphics; dimensions, constraints, and feature inputs belong to CAD sketches.
 
 ## Stack
 
@@ -20,15 +22,17 @@ Polivex is a native desktop CAD application: make a 2D sketch, then build a 3D m
 
 The domain layer. It must not know about Qt widgets, windows, or dock panels.
 
-Examples: documents, sketch entities, constraints, feature history, IDs, and shared value types.
+Examples: documents, shared geometry, vector paths and styles, sketch entities, sketch planes, constraints, feature history, IDs, and shared value types.
+
+The first `SketchPlane` values are `XY`, `XZ`, and `YZ`. A later extension can represent a custom plane or a face of a 3D body without changing the meaning of an existing sketch entity.
 
 ### `src/app`
 
-The application layer. It turns user intentions into changes to `core` and coordinates active documents, commands, tools, and later undo/redo.
+The application layer. It turns user intentions into changes to `core` and coordinates active documents, commands, tools, workspaces, and later undo/redo.
 
 ### `src/ui`
 
-The Qt presentation layer: windows, panels, dialogs, toolbars, and viewport widgets. It may use `app`, but it does not own geometry or modelling rules.
+The Qt presentation layer: windows, panels, dialogs, toolbars, and viewport widgets. It may use `app`, but it does not own vector, geometry, or modelling rules.
 
 ### `tests`
 
@@ -44,19 +48,19 @@ Files packaged with the application. `resources/i18n` contains Qt translation so
 ui  ->  app  ->  core
 ```
 
-`ui` may call `app`; `app` may call `core`. The reverse directions are not allowed. In particular, keep `core` free of UI dependencies and keep complicated CAD decisions out of event handlers.
+`ui` may call `app`; `app` may call `core`. The reverse directions are not allowed. In particular, keep `core` free of UI dependencies and keep complicated design decisions out of event handlers.
 
 ## Why keep this boundary
 
-- Sketch and modelling logic stays easy to test.
+- Vector, sketch, and modelling logic stays easy to test.
 - Changing the UI or renderer is less dangerous.
 - Contributors can work on a smaller part of the codebase.
 - The project does not become one enormous `MainWindow` class.
 
 ## Next architectural decisions
 
-1. Add a command system in `app`.
-2. Add sketch entities and constraints in `core`.
+1. Add a command system and workspace activation in `app`.
+2. Grow the first shared 2D geometry and separate vector/sketch entities beyond rectangles.
 3. Define a viewport scene abstraction before committing to a renderer.
 4. Add an `io` module when saving and import/export become substantial.
 
