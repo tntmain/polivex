@@ -14,6 +14,10 @@ target_include_directories(polivex_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 add_library(polivex_app STATIC
     app/application_session.cpp
     app/application_session.h
+    app/rectangle_batch_ops.cpp
+    app/rectangle_batch_ops.h
+    app/selection_set.cpp
+    app/selection_set.h
     app/workspace.h
 )
 

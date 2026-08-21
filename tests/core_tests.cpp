@@ -95,5 +95,36 @@ int main()
         return EXIT_FAILURE;
     }
 
+    if (!session.active_document().set_rectangle_corner_radius(vector_id, 10.0)) {
+        std::cerr << "expected corner radius update to succeed\n";
+        return EXIT_FAILURE;
+    }
+
+    vector_rectangle = session.active_document().rectangle(vector_id);
+    if (vector_rectangle == nullptr || vector_rectangle->corner_radius != 0.5) {
+        std::cerr << "expected corner radius to clamp to half of the shorter side\n";
+        return EXIT_FAILURE;
+    }
+
+    const auto& second_rectangle =
+        session.active_document().add_rectangle(polivex::core::RectangleKind::Vector, {{4.0, 0.0}, {5.0, 1.0}});
+    const auto second_id = second_rectangle.id;
+    if (!session.active_document().bring_rectangle_to_front(vector_id)) {
+        std::cerr << "expected bring to front to succeed\n";
+        return EXIT_FAILURE;
+    }
+    if (session.active_document().rectangles().back().id != vector_id) {
+        std::cerr << "expected selected rectangle to be last after bring to front\n";
+        return EXIT_FAILURE;
+    }
+    if (!session.active_document().send_rectangle_to_back(vector_id)) {
+        std::cerr << "expected send to back to succeed\n";
+        return EXIT_FAILURE;
+    }
+    if (session.active_document().rectangles().front().id != vector_id || session.active_document().rectangles().back().id != second_id) {
+        std::cerr << "expected z-order moves to reorder rectangles\n";
+        return EXIT_FAILURE;
+    }
+
     return EXIT_SUCCESS;
 }
