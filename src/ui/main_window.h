@@ -1,15 +1,15 @@
 #pragma once
 
+#include <array>
+
 #include <QMainWindow>
 #include <QString>
 
+#include "core/point_2d.h"
+#include "core/rectangle_2d.h"
+
 namespace polivex::app {
 class ApplicationSession;
-}
-
-namespace polivex::core {
-struct Point2D;
-struct Rectangle2D;
 }
 
 class QLabel;
@@ -52,7 +52,13 @@ private slots:
     void handle_selected_move_requested(const polivex::core::Point2D& delta);
     void handle_selected_resize_requested(const polivex::core::Rectangle2D& bounds);
     void handle_selected_rotation_requested(double rotation_degrees);
+    void handle_selected_shape_requested(
+        const std::array<polivex::core::Point2D, 4>& vertices, const polivex::core::Point2D& pivot,
+        double rotation_degrees, bool has_custom_vertices);
     void handle_selected_corner_radius_requested(double radius);
+    void handle_selected_vertex_corner_radius_requested(int vertex_index, double radius);
+    void handle_selected_stroke_color_change();
+    void handle_selected_stroke_width_change(double width);
     void handle_selected_bring_to_front();
     void handle_selected_send_to_back();
     void handle_selected_move_up();
@@ -90,6 +96,16 @@ private:
     QLabel* layers_label_ = nullptr;
     QLabel* inspector_label_ = nullptr;
     QLabel* geometry_label_ = nullptr;
+    QLabel* x_label_ = nullptr;
+    QLabel* y_label_ = nullptr;
+    QLabel* width_label_ = nullptr;
+    QLabel* height_label_ = nullptr;
+    QLabel* rotation_label_ = nullptr;
+    QLabel* corner_radius_label_ = nullptr;
+    QLabel* fill_color_label_ = nullptr;
+    QLabel* stroke_color_label_ = nullptr;
+    QLabel* stroke_width_label_ = nullptr;
+    QLabel* opacity_label_ = nullptr;
     QListWidget* layers_list_ = nullptr;
     QDoubleSpinBox* x_spinbox_ = nullptr;
     QDoubleSpinBox* y_spinbox_ = nullptr;
@@ -98,6 +114,8 @@ private:
     QDoubleSpinBox* rotation_spinbox_ = nullptr;
     QDoubleSpinBox* corner_radius_spinbox_ = nullptr;
     QPushButton* color_button_ = nullptr;
+    QPushButton* stroke_color_button_ = nullptr;
+    QDoubleSpinBox* stroke_width_spinbox_ = nullptr;
     QSlider* opacity_slider_ = nullptr;
     QMenu* file_menu_ = nullptr;
     QMenu* view_menu_ = nullptr;

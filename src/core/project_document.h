@@ -26,7 +26,11 @@ public:
     [[nodiscard]] bool move_rectangle(EntityId id, Point2D delta) noexcept;
     [[nodiscard]] bool set_rectangle_bounds(EntityId id, Rectangle2D bounds) noexcept;
     [[nodiscard]] bool set_rectangle_rotation(EntityId id, double rotation_degrees) noexcept;
+    [[nodiscard]] bool set_rectangle_shape(
+        EntityId id, const std::array<Point2D, 4>& vertices, Point2D pivot, double rotation_degrees,
+        bool has_custom_vertices) noexcept;
     [[nodiscard]] bool set_rectangle_corner_radius(EntityId id, double radius) noexcept;
+    [[nodiscard]] bool set_rectangle_corner_radius(EntityId id, std::size_t corner_index, double radius) noexcept;
     [[nodiscard]] bool set_vector_rectangle_style(EntityId id, VectorStyle style) noexcept;
     [[nodiscard]] bool bring_rectangle_to_front(EntityId id) noexcept;
     [[nodiscard]] bool send_rectangle_to_back(EntityId id) noexcept;

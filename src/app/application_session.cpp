@@ -122,10 +122,25 @@ bool ApplicationSession::set_selected_rectangle_rotation(double rotation_degrees
         && active_document_.set_rectangle_rotation(*selected_entity_id(), rotation_degrees);
 }
 
+bool ApplicationSession::set_selected_rectangle_shape(
+    const std::array<polivex::core::Point2D, 4>& vertices, polivex::core::Point2D pivot,
+    double rotation_degrees, bool has_custom_vertices) noexcept
+{
+    return selected_entity_id().has_value()
+        && active_document_.set_rectangle_shape(
+            *selected_entity_id(), vertices, pivot, rotation_degrees, has_custom_vertices);
+}
+
 bool ApplicationSession::set_selected_rectangle_corner_radius(double radius) noexcept
 {
     return selected_entity_id().has_value()
         && active_document_.set_rectangle_corner_radius(*selected_entity_id(), radius);
+}
+
+bool ApplicationSession::set_selected_rectangle_corner_radius(std::size_t corner_index, double radius) noexcept
+{
+    return selected_entity_id().has_value()
+        && active_document_.set_rectangle_corner_radius(*selected_entity_id(), corner_index, radius);
 }
 
 bool ApplicationSession::bring_selected_rectangle_to_front() noexcept

@@ -298,5 +298,41 @@ Sketch rectangles: %4</translation>
         <source>Untitled</source>
         <translation>Untitled</translation>
     </message>
+    <message>
+        <source>X</source>
+        <translation>X</translation>
+    </message>
+    <message>
+        <source>Y</source>
+        <translation>Y</translation>
+    </message>
+    <message>
+        <source>Width</source>
+        <translation>Width</translation>
+    </message>
+    <message>
+        <source>Height</source>
+        <translation>Height</translation>
+    </message>
+    <message>
+        <source>Rotation</source>
+        <translation>Rotation</translation>
+    </message>
+    <message>
+        <source>Corner radius</source>
+        <translation>Corner radius</translation>
+    </message>
+    <message>
+        <source>Stroke color</source>
+        <translation>Stroke color</translation>
+    </message>
+    <message>
+        <source>Stroke width</source>
+        <translation>Stroke width</translation>
+    </message>
+    <message>
+        <source>Opacity</source>
+        <translation>Opacity</translation>
+    </message>
 </context>
 </TS>

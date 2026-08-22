@@ -54,6 +54,13 @@ struct SnapResult {
     bool matched = false;
 };
 
+struct PointSnapResult {
+    QPointF delta_scene;
+    QPointF from_scene;
+    QPointF to_scene;
+    bool matched = false;
+};
+
 struct FrameGeometry {
     QPointF top_left;
     QPointF top_right;
@@ -66,14 +73,37 @@ struct FrameGeometry {
     QPointF center;
 };
 
+using VertexArray = std::array<QPointF, 4>;
+using CornerRadiusArray = std::array<double, 4>;
+
 QPointF to_point(const polivex::core::Point2D& point)
 {
     return {point.x, point.y};
 }
 
+polivex::core::Point2D from_point(const QPointF& point)
+{
+    return {point.x(), point.y()};
+}
+
 QPointF midpoint(const QPointF& first, const QPointF& second)
 {
     return {(first.x() + second.x()) / 2.0, (first.y() + second.y()) / 2.0};
+}
+
+double distance_between(const QPointF& first, const QPointF& second)
+{
+    return std::hypot(second.x() - first.x(), second.y() - first.y());
+}
+
+QPointF normalized_vector(const QPointF& vector)
+{
+    const auto length = std::hypot(vector.x(), vector.y());
+    if (length <= 1e-9) {
+        return {};
+    }
+
+    return vector / length;
 }
 
 double dot_product(const QPointF& first, const QPointF& second)
@@ -103,59 +133,274 @@ QPointF inverse_rotate_point(const QPointF& point, const QPointF& center, double
     return rotate_point(point, center, -degrees);
 }
 
-FrameGeometry make_frame_geometry(const polivex::core::Rectangle2D& bounds, double rotation_degrees)
+QPointF rotate_vector(const QPointF& vector, double degrees)
 {
-    const QPointF top_left {bounds.minimum.x, bounds.maximum.y};
-    const QPointF top_right {bounds.maximum.x, bounds.maximum.y};
-    const QPointF bottom_right {bounds.maximum.x, bounds.minimum.y};
-    const QPointF bottom_left {bounds.minimum.x, bounds.minimum.y};
-    const auto center = to_point(polivex::core::rectangle_center(bounds));
+    return rotate_point(vector, QPointF(0.0, 0.0), degrees);
+}
+
+double remap_value(double value, double source_minimum, double source_maximum, double target_minimum, double target_maximum)
+{
+    const auto source_size = source_maximum - source_minimum;
+    if (std::abs(source_size) <= 1e-9) {
+        return (target_minimum + target_maximum) / 2.0;
+    }
+
+    const auto t = (value - source_minimum) / source_size;
+    return target_minimum + (target_maximum - target_minimum) * t;
+}
+
+VertexArray rectangle_vertices(const polivex::core::RectangleEntity& rectangle)
+{
+    VertexArray vertices {};
+    for (std::size_t index = 0; index < rectangle.vertices.size(); ++index) {
+        vertices[index] = to_point(rectangle.vertices[index]);
+    }
+    return vertices;
+}
+
+QPolygonF polygon_from_vertices(const VertexArray& vertices)
+{
+    QPolygonF polygon;
+    for (const auto& vertex : vertices) {
+        polygon << vertex;
+    }
+    return polygon;
+}
+
+QPointF local_point(const QPointF& world_point, const QPointF& pivot, double rotation_degrees)
+{
+    return inverse_rotate_point(world_point, pivot, rotation_degrees) - pivot;
+}
+
+QPointF world_point(const QPointF& local_point, const QPointF& pivot, double rotation_degrees)
+{
+    return rotate_point(pivot + local_point, pivot, rotation_degrees);
+}
+
+VertexArray local_vertices(const polivex::core::RectangleEntity& rectangle)
+{
+    const auto pivot = to_point(rectangle.pivot);
+    const auto world_vertices = rectangle_vertices(rectangle);
+    VertexArray local {};
+    for (std::size_t index = 0; index < world_vertices.size(); ++index) {
+        local[index] = local_point(world_vertices[index], pivot, rectangle.rotation_degrees);
+    }
+    return local;
+}
+
+CornerRadiusArray effective_corner_radii(const polivex::core::RectangleEntity& rectangle)
+{
+    if (rectangle.has_custom_vertices) {
+        return rectangle.corner_radii;
+    }
 
     return {
-        rotate_point(top_left, center, rotation_degrees),
-        rotate_point(top_right, center, rotation_degrees),
-        rotate_point(bottom_right, center, rotation_degrees),
-        rotate_point(bottom_left, center, rotation_degrees),
-        rotate_point(midpoint(top_left, top_right), center, rotation_degrees),
-        rotate_point(midpoint(top_right, bottom_right), center, rotation_degrees),
-        rotate_point(midpoint(bottom_left, bottom_right), center, rotation_degrees),
-        rotate_point(midpoint(top_left, bottom_left), center, rotation_degrees),
+        rectangle.corner_radius,
+        rectangle.corner_radius,
+        rectangle.corner_radius,
+        rectangle.corner_radius,
+    };
+}
+
+polivex::core::Rectangle2D bounds_from_points(const VertexArray& points);
+
+polivex::core::Rectangle2D local_bounds_from_vertices(
+    const std::array<polivex::core::Point2D, 4>& vertices, const QPointF& pivot, double rotation_degrees)
+{
+    VertexArray local {};
+    for (std::size_t index = 0; index < vertices.size(); ++index) {
+        local[index] = local_point(to_point(vertices[index]), pivot, rotation_degrees);
+    }
+    return bounds_from_points(local);
+}
+
+polivex::core::Rectangle2D local_bounds_for_rectangle(const polivex::core::RectangleEntity& rectangle)
+{
+    return local_bounds_from_vertices(rectangle.vertices, to_point(rectangle.pivot), rectangle.rotation_degrees);
+}
+
+double maximum_corner_radius_for(const VertexArray& vertices, std::size_t corner_index)
+{
+    const auto previous_index = (corner_index + vertices.size() - 1) % vertices.size();
+    const auto next_index = (corner_index + 1) % vertices.size();
+    return std::min(
+        distance_between(vertices[corner_index], vertices[previous_index]),
+        distance_between(vertices[corner_index], vertices[next_index]))
+        / 2.0;
+}
+
+double clamped_corner_radius_for(const VertexArray& vertices, const CornerRadiusArray& radii, std::size_t corner_index)
+{
+    return std::clamp(radii[corner_index], 0.0, maximum_corner_radius_for(vertices, corner_index));
+}
+
+std::pair<QPointF, QPointF> rounded_corner_segment(
+    const VertexArray& vertices, const CornerRadiusArray& radii, std::size_t corner_index)
+{
+    const auto previous_index = (corner_index + vertices.size() - 1) % vertices.size();
+    const auto next_index = (corner_index + 1) % vertices.size();
+    const auto corner = vertices[corner_index];
+    const auto radius = clamped_corner_radius_for(vertices, radii, corner_index);
+    if (radius <= 1e-9) {
+        return {corner, corner};
+    }
+
+    const auto start = corner + normalized_vector(vertices[previous_index] - corner) * radius;
+    const auto end = corner + normalized_vector(vertices[next_index] - corner) * radius;
+    return {start, end};
+}
+
+QPainterPath rounded_polygon_path(const VertexArray& vertices, const CornerRadiusArray& radii)
+{
+    QPainterPath path;
+    if (vertices.empty()) {
+        return path;
+    }
+
+    const auto [first_entry, first_exit] = rounded_corner_segment(vertices, radii, 0);
+    path.moveTo(first_exit);
+
+    for (std::size_t index = 1; index < vertices.size(); ++index) {
+        const auto [entry, exit] = rounded_corner_segment(vertices, radii, index);
+        path.lineTo(entry);
+        if (clamped_corner_radius_for(vertices, radii, index) > 1e-9) {
+            path.quadTo(vertices[index], exit);
+        }
+    }
+
+    path.lineTo(first_entry);
+    if (clamped_corner_radius_for(vertices, radii, 0) > 1e-9) {
+        path.quadTo(vertices[0], first_exit);
+    }
+    path.closeSubpath();
+    return path;
+}
+
+polivex::core::Rectangle2D bounds_from_points(const VertexArray& points)
+{
+    auto minimum_x = points.front().x();
+    auto maximum_x = points.front().x();
+    auto minimum_y = points.front().y();
+    auto maximum_y = points.front().y();
+
+    for (const auto& point : points) {
+        minimum_x = std::min(minimum_x, point.x());
+        maximum_x = std::max(maximum_x, point.x());
+        minimum_y = std::min(minimum_y, point.y());
+        maximum_y = std::max(maximum_y, point.y());
+    }
+
+    return {
+        {minimum_x, minimum_y},
+        {maximum_x, maximum_y},
+    };
+}
+
+FrameGeometry make_frame_geometry(const VertexArray& vertices, const QPointF& center)
+{
+    const auto top_left = vertices[0];
+    const auto top_right = vertices[1];
+    const auto bottom_right = vertices[2];
+    const auto bottom_left = vertices[3];
+
+    return {
+        top_left,
+        top_right,
+        bottom_right,
+        bottom_left,
+        midpoint(top_left, top_right),
+        midpoint(top_right, bottom_right),
+        midpoint(bottom_left, bottom_right),
+        midpoint(top_left, bottom_left),
         center,
     };
 }
 
 FrameGeometry make_frame_geometry(const polivex::core::RectangleEntity& rectangle)
 {
-    return make_frame_geometry(rectangle.bounds, rectangle.rotation_degrees);
+    return {
+        to_point(rectangle.vertices[0]),
+        to_point(rectangle.vertices[1]),
+        to_point(rectangle.vertices[2]),
+        to_point(rectangle.vertices[3]),
+        midpoint(to_point(rectangle.vertices[0]), to_point(rectangle.vertices[1])),
+        midpoint(to_point(rectangle.vertices[1]), to_point(rectangle.vertices[2])),
+        midpoint(to_point(rectangle.vertices[3]), to_point(rectangle.vertices[2])),
+        midpoint(to_point(rectangle.vertices[0]), to_point(rectangle.vertices[3])),
+        to_point(rectangle.pivot),
+    };
+}
+
+QPointF rotation_handle_position_screen(const QPointF& corner_screen, const QPointF& center_screen, double offset_px)
+{
+    const auto delta = corner_screen - center_screen;
+    const auto length = std::hypot(delta.x(), delta.y());
+    if (length <= 1e-6) {
+        return corner_screen + QPointF(0.0, -offset_px);
+    }
+
+    const auto direction = delta / length;
+    return corner_screen + direction * offset_px;
 }
 
 QPointF radius_handle_position(
     const polivex::core::RectangleEntity& rectangle, ViewportWidget::CornerRadiusHandle handle, double scale)
 {
-    const auto& bounds = rectangle.bounds;
-    const auto inset = kRadiusHandleInsetPx / std::max(scale, 0.0001);
+    if (rectangle.has_custom_vertices) {
+        return to_point(rectangle.pivot);
+    }
+
+    const auto bounds = local_bounds_for_rectangle(rectangle);
+    const auto inset = (kRadiusHandleInsetPx + 6.0) / std::max(scale, 0.0001);
     const auto max_radius = std::min(polivex::core::rectangle_width(bounds), polivex::core::rectangle_height(bounds)) / 2.0;
     const auto offset = std::clamp(rectangle.corner_radius + inset, 0.0, max_radius);
     const QPointF top_left {bounds.minimum.x + offset, bounds.maximum.y - offset};
     const QPointF top_right {bounds.maximum.x - offset, bounds.maximum.y - offset};
     const QPointF bottom_right {bounds.maximum.x - offset, bounds.minimum.y + offset};
     const QPointF bottom_left {bounds.minimum.x + offset, bounds.minimum.y + offset};
-    const auto center = to_point(polivex::core::rectangle_center(bounds));
+    const auto pivot = to_point(rectangle.pivot);
 
     switch (handle) {
     case ViewportWidget::CornerRadiusHandle::TopLeft:
-        return rotate_point(top_left, center, rectangle.rotation_degrees);
+        return world_point(top_left, pivot, rectangle.rotation_degrees);
     case ViewportWidget::CornerRadiusHandle::TopRight:
-        return rotate_point(top_right, center, rectangle.rotation_degrees);
+        return world_point(top_right, pivot, rectangle.rotation_degrees);
     case ViewportWidget::CornerRadiusHandle::BottomRight:
-        return rotate_point(bottom_right, center, rectangle.rotation_degrees);
+        return world_point(bottom_right, pivot, rectangle.rotation_degrees);
     case ViewportWidget::CornerRadiusHandle::BottomLeft:
-        return rotate_point(bottom_left, center, rectangle.rotation_degrees);
+        return world_point(bottom_left, pivot, rectangle.rotation_degrees);
     case ViewportWidget::CornerRadiusHandle::None:
         break;
     }
 
-    return center;
+    return pivot;
+}
+
+QPointF custom_corner_radius_handle_position(const polivex::core::RectangleEntity& rectangle, std::size_t corner_index)
+{
+    const auto vertices = rectangle_vertices(rectangle);
+    const auto radii = effective_corner_radii(rectangle);
+    const auto [entry, exit] = rounded_corner_segment(vertices, radii, corner_index);
+    return midpoint(entry, exit);
+}
+
+double custom_corner_radius_from_point(
+    const polivex::core::RectangleEntity& rectangle, std::size_t corner_index, const QPointF& scene_point)
+{
+    const auto vertices = rectangle_vertices(rectangle);
+    const auto previous_index = (corner_index + vertices.size() - 1) % vertices.size();
+    const auto next_index = (corner_index + 1) % vertices.size();
+    const auto corner = vertices[corner_index];
+    const auto previous_direction = normalized_vector(vertices[previous_index] - corner);
+    const auto next_direction = normalized_vector(vertices[next_index] - corner);
+    const auto delta = scene_point - corner;
+    const auto radius = std::min(dot_product(delta, previous_direction), dot_product(delta, next_direction));
+    return std::clamp(radius, 0.0, maximum_corner_radius_for(vertices, corner_index));
+}
+
+double default_custom_corner_radius(const polivex::core::RectangleEntity& rectangle, std::size_t corner_index)
+{
+    return maximum_corner_radius_for(rectangle_vertices(rectangle), corner_index) * 0.2;
 }
 
 Qt::CursorShape cursor_for_resize_handle(ViewportWidget::ResizeHandle handle)
@@ -180,9 +425,39 @@ Qt::CursorShape cursor_for_resize_handle(ViewportWidget::ResizeHandle handle)
     return Qt::ArrowCursor;
 }
 
+bool point_in_polygon(const VertexArray& vertices, const QPointF& point)
+{
+    return polygon_from_vertices(vertices).containsPoint(point, Qt::OddEvenFill);
+}
+
+PointSnapResult best_point_snap(
+    const std::vector<QPointF>& selected_points, const std::vector<QPointF>& other_points, double scale)
+{
+    PointSnapResult result;
+    auto best_distance = std::numeric_limits<double>::max();
+
+    for (const auto& selected_point : selected_points) {
+        for (const auto& other_point : other_points) {
+            const auto screen_delta = (other_point - selected_point) * scale;
+            const auto distance = std::hypot(screen_delta.x(), screen_delta.y());
+            if (distance > kSnapThresholdPx || distance >= best_distance) {
+                continue;
+            }
+
+            best_distance = distance;
+            result.delta_scene = other_point - selected_point;
+            result.from_scene = selected_point;
+            result.to_scene = other_point;
+            result.matched = true;
+        }
+    }
+
+    return result;
+}
+
 std::vector<AxisCandidate> x_candidates_for(const polivex::core::RectangleEntity& rectangle, double scale)
 {
-    const auto& bounds = rectangle.bounds;
+    const auto bounds = bounds_from_points(rectangle_vertices(rectangle));
     const auto center_x = (bounds.minimum.x + bounds.maximum.x) / 2.0;
     return {
         {bounds.minimum.x, bounds.minimum.x * scale},
@@ -191,13 +466,31 @@ std::vector<AxisCandidate> x_candidates_for(const polivex::core::RectangleEntity
     };
 }
 
+std::vector<AxisCandidate> edge_x_candidates_for(const polivex::core::RectangleEntity& rectangle, double scale)
+{
+    const auto bounds = bounds_from_points(rectangle_vertices(rectangle));
+    return {
+        {bounds.minimum.x, bounds.minimum.x * scale},
+        {bounds.maximum.x, bounds.maximum.x * scale},
+    };
+}
+
 std::vector<AxisCandidate> y_candidates_for(const polivex::core::RectangleEntity& rectangle, double scale)
 {
-    const auto& bounds = rectangle.bounds;
+    const auto bounds = bounds_from_points(rectangle_vertices(rectangle));
     const auto center_y = (bounds.minimum.y + bounds.maximum.y) / 2.0;
     return {
         {bounds.minimum.y, -bounds.minimum.y * scale},
         {center_y, -center_y * scale},
+        {bounds.maximum.y, -bounds.maximum.y * scale},
+    };
+}
+
+std::vector<AxisCandidate> edge_y_candidates_for(const polivex::core::RectangleEntity& rectangle, double scale)
+{
+    const auto bounds = bounds_from_points(rectangle_vertices(rectangle));
+    return {
+        {bounds.minimum.y, -bounds.minimum.y * scale},
         {bounds.maximum.y, -bounds.maximum.y * scale},
     };
 }
@@ -238,6 +531,46 @@ std::vector<AxisCandidate> y_candidates_for(const polivex::core::Rectangle2D& bo
     }
 
     return {};
+}
+
+std::vector<AxisCandidate> x_candidates_for(const VertexArray& vertices, double scale)
+{
+    const auto bounds = bounds_from_points(vertices);
+    const auto center_x = (bounds.minimum.x + bounds.maximum.x) / 2.0;
+    return {
+        {bounds.minimum.x, bounds.minimum.x * scale},
+        {center_x, center_x * scale},
+        {bounds.maximum.x, bounds.maximum.x * scale},
+    };
+}
+
+std::vector<AxisCandidate> edge_x_candidates_for(const VertexArray& vertices, double scale)
+{
+    const auto bounds = bounds_from_points(vertices);
+    return {
+        {bounds.minimum.x, bounds.minimum.x * scale},
+        {bounds.maximum.x, bounds.maximum.x * scale},
+    };
+}
+
+std::vector<AxisCandidate> y_candidates_for(const VertexArray& vertices, double scale)
+{
+    const auto bounds = bounds_from_points(vertices);
+    const auto center_y = (bounds.minimum.y + bounds.maximum.y) / 2.0;
+    return {
+        {bounds.minimum.y, -bounds.minimum.y * scale},
+        {center_y, -center_y * scale},
+        {bounds.maximum.y, -bounds.maximum.y * scale},
+    };
+}
+
+std::vector<AxisCandidate> edge_y_candidates_for(const VertexArray& vertices, double scale)
+{
+    const auto bounds = bounds_from_points(vertices);
+    return {
+        {bounds.minimum.y, -bounds.minimum.y * scale},
+        {bounds.maximum.y, -bounds.maximum.y * scale},
+    };
 }
 
 SnapResult best_snap(const std::vector<AxisCandidate>& selected, const std::vector<AxisCandidate>& others)
@@ -308,6 +641,8 @@ void ViewportWidget::set_selected_entity_id(std::optional<polivex::core::EntityI
     }
     if (selected_entity_ids_ != previous) {
         selection_handle_mode_ = SelectionHandleMode::Scale;
+        visible_vertex_corner_radius_index_ = -1;
+        active_corner_radius_vertex_index_ = -1;
     }
     update();
 }
@@ -318,6 +653,8 @@ void ViewportWidget::set_selected_entity_ids(std::span<const polivex::core::Enti
     selected_entity_ids_.assign(entity_ids.begin(), entity_ids.end());
     if (selected_entity_ids_ != previous) {
         selection_handle_mode_ = SelectionHandleMode::Scale;
+        visible_vertex_corner_radius_index_ = -1;
+        active_corner_radius_vertex_index_ = -1;
     }
     update();
 }
@@ -371,7 +708,7 @@ void ViewportWidget::mouseMoveEvent(QMouseEvent* event)
     }
 
     if (is_moving_selected_rectangle_ || is_resizing_selected_rectangle_ || is_rotating_selected_rectangle_
-        || is_adjusting_corner_radius_) {
+        || is_editing_selected_vertex_ || is_adjusting_corner_radius_) {
         const auto selected = selected_rectangle();
         if (!selected.has_value()) {
             return;
@@ -379,69 +716,92 @@ void ViewportWidget::mouseMoveEvent(QMouseEvent* event)
 
         snap_guides_.clear();
         const auto current_scene = screen_to_scene(event->position());
-        auto bounds = interaction_initial_bounds_;
+        const auto initial_pivot = to_point(interaction_initial_pivot_);
+        const auto scale = kBasePixelsPerUnit * state_.zoom;
+        auto emit_shape = [this](const VertexArray& vertices, const QPointF& pivot, double rotation_degrees, bool has_custom_vertices) {
+            std::array<polivex::core::Point2D, 4> emitted_vertices {};
+            for (std::size_t index = 0; index < vertices.size(); ++index) {
+                emitted_vertices[index] = from_point(vertices[index]);
+            }
+            emit selected_rectangle_shape_requested(emitted_vertices, from_point(pivot), rotation_degrees, has_custom_vertices);
+        };
+        auto other_snap_points = [this]() {
+            std::vector<QPointF> points;
+            for (const auto& rectangle : rectangles_) {
+                if (is_selected(rectangle.id)) {
+                    continue;
+                }
+                for (const auto& vertex : rectangle.vertices) {
+                    points.push_back(to_point(vertex));
+                }
+                points.push_back(to_point(rectangle.pivot));
+            }
+            return points;
+        };
 
         if (is_moving_selected_rectangle_) {
-            const polivex::core::Point2D absolute_delta {
-                current_scene.x() - interaction_press_scene_.x(),
-                current_scene.y() - interaction_press_scene_.y(),
-            };
-            bounds.minimum.x += absolute_delta.x;
-            bounds.maximum.x += absolute_delta.x;
-            bounds.minimum.y += absolute_delta.y;
-            bounds.maximum.y += absolute_delta.y;
+            auto absolute_delta = current_scene - interaction_press_scene_;
+            VertexArray moved_vertices {};
+            std::vector<QPointF> moved_points;
+            moved_points.reserve(interaction_initial_vertices_.size() + 1);
+            for (std::size_t index = 0; index < interaction_initial_vertices_.size(); ++index) {
+                moved_vertices[index] = to_point(interaction_initial_vertices_[index]) + absolute_delta;
+                moved_points.push_back(moved_vertices[index]);
+            }
+            moved_points.push_back(initial_pivot + absolute_delta);
+            const auto snap = best_point_snap(moved_points, other_snap_points(), scale);
+            if (snap.matched) {
+                absolute_delta += snap.delta_scene;
+                snap_guides_.push_back(QLineF(scene_to_screen(snap.from_scene), scene_to_screen(snap.to_scene)));
+            }
 
-            if (selected->rotation_degrees == 0.0) {
-                const auto scale = kBasePixelsPerUnit * state_.zoom;
-                const auto center_x = (bounds.minimum.x + bounds.maximum.x) / 2.0;
-                const auto center_y = (bounds.minimum.y + bounds.maximum.y) / 2.0;
-                const std::vector<AxisCandidate> selected_x {
-                    {bounds.minimum.x, bounds.minimum.x * scale},
-                    {center_x, center_x * scale},
-                    {bounds.maximum.x, bounds.maximum.x * scale},
-                };
-                const std::vector<AxisCandidate> selected_y {
-                    {bounds.minimum.y, -bounds.minimum.y * scale},
-                    {center_y, -center_y * scale},
-                    {bounds.maximum.y, -bounds.maximum.y * scale},
-                };
-                std::vector<AxisCandidate> other_x;
-                std::vector<AxisCandidate> other_y;
-                for (const auto& rectangle : rectangles_) {
-                    if (is_selected(rectangle.id)) {
-                        continue;
-                    }
-                    const auto x_set = x_candidates_for(rectangle, scale);
-                    const auto y_set = y_candidates_for(rectangle, scale);
-                    other_x.insert(other_x.end(), x_set.begin(), x_set.end());
-                    other_y.insert(other_y.end(), y_set.begin(), y_set.end());
+            for (std::size_t index = 0; index < interaction_initial_vertices_.size(); ++index) {
+                moved_vertices[index] = to_point(interaction_initial_vertices_[index]) + absolute_delta;
+            }
+            std::vector<AxisCandidate> other_x;
+            std::vector<AxisCandidate> other_y;
+            std::vector<AxisCandidate> other_edge_x;
+            std::vector<AxisCandidate> other_edge_y;
+            for (const auto& rectangle : rectangles_) {
+                if (is_selected(rectangle.id)) {
+                    continue;
                 }
+                const auto x_set = x_candidates_for(rectangle, scale);
+                const auto y_set = y_candidates_for(rectangle, scale);
+                const auto edge_x_set = edge_x_candidates_for(rectangle, scale);
+                const auto edge_y_set = edge_y_candidates_for(rectangle, scale);
+                other_x.insert(other_x.end(), x_set.begin(), x_set.end());
+                other_y.insert(other_y.end(), y_set.begin(), y_set.end());
+                other_edge_x.insert(other_edge_x.end(), edge_x_set.begin(), edge_x_set.end());
+                other_edge_y.insert(other_edge_y.end(), edge_y_set.begin(), edge_y_set.end());
+            }
 
-                const auto snap_x = best_snap(selected_x, other_x);
-                const auto snap_y = best_snap(selected_y, other_y);
-                if (snap_x.matched) {
-                    const auto delta_scene_x = snap_x.delta_scene;
-                    bounds.minimum.x += delta_scene_x;
-                    bounds.maximum.x += delta_scene_x;
-                    const auto guide_x = scene_to_screen(QPointF(snap_x.guide_scene, 0.0)).x();
-                    snap_guides_.push_back(QLineF(QPointF(guide_x, 0.0), QPointF(guide_x, height())));
-                }
-                if (snap_y.matched) {
-                    const auto delta_scene_y = snap_y.delta_scene;
-                    bounds.minimum.y += delta_scene_y;
-                    bounds.maximum.y += delta_scene_y;
-                    const auto guide_y = scene_to_screen(QPointF(0.0, snap_y.guide_scene)).y();
-                    snap_guides_.push_back(QLineF(QPointF(0.0, guide_y), QPointF(width(), guide_y)));
-                }
+            const auto snap_x = [&]() {
+                const auto edge_snap = best_snap(edge_x_candidates_for(moved_vertices, scale), other_edge_x);
+                return edge_snap.matched ? edge_snap : best_snap(x_candidates_for(moved_vertices, scale), other_x);
+            }();
+            const auto snap_y = [&]() {
+                const auto edge_snap = best_snap(edge_y_candidates_for(moved_vertices, scale), other_edge_y);
+                return edge_snap.matched ? edge_snap : best_snap(y_candidates_for(moved_vertices, scale), other_y);
+            }();
+            if (snap_x.matched) {
+                absolute_delta.rx() += snap_x.delta_scene;
+                const auto guide_x = scene_to_screen(QPointF(snap_x.guide_scene, 0.0)).x();
+                snap_guides_.push_back(QLineF(QPointF(guide_x, 0.0), QPointF(guide_x, height())));
+            }
+            if (snap_y.matched) {
+                absolute_delta.ry() += snap_y.delta_scene;
+                const auto guide_y = scene_to_screen(QPointF(0.0, snap_y.guide_scene)).y();
+                snap_guides_.push_back(QLineF(QPointF(0.0, guide_y), QPointF(width(), guide_y)));
             }
 
             const polivex::core::Point2D emitted_delta {
-                bounds.minimum.x - interaction_initial_bounds_.minimum.x - last_move_delta_.x,
-                bounds.minimum.y - interaction_initial_bounds_.minimum.y - last_move_delta_.y,
+                absolute_delta.x() - last_move_delta_.x,
+                absolute_delta.y() - last_move_delta_.y,
             };
             last_move_delta_ = {
-                bounds.minimum.x - interaction_initial_bounds_.minimum.x,
-                bounds.minimum.y - interaction_initial_bounds_.minimum.y,
+                absolute_delta.x(),
+                absolute_delta.y(),
             };
             emit selected_rectangle_move_requested(emitted_delta);
             update();
@@ -449,80 +809,65 @@ void ViewportWidget::mouseMoveEvent(QMouseEvent* event)
         }
 
         if (is_resizing_selected_rectangle_) {
-            const auto initial_center = to_point(polivex::core::rectangle_center(interaction_initial_bounds_));
-            const auto radians = interaction_initial_rotation_ * std::numbers::pi / 180.0;
-            const QPointF axis_x {std::cos(radians), std::sin(radians)};
-            const QPointF axis_y {-std::sin(radians), std::cos(radians)};
-            const auto initial_frame = make_frame_geometry(interaction_initial_bounds_, interaction_initial_rotation_);
-
-            auto make_bounds = [](const QPointF& center, double half_width, double half_height) {
-                return polivex::core::Rectangle2D {
-                    {center.x() - half_width, center.y() - half_height},
-                    {center.x() + half_width, center.y() + half_height},
-                };
-            };
+            VertexArray initial_vertices {};
+            for (std::size_t index = 0; index < interaction_initial_vertices_.size(); ++index) {
+                initial_vertices[index] = to_point(interaction_initial_vertices_[index]);
+            }
+            VertexArray initial_local {};
+            for (std::size_t index = 0; index < initial_vertices.size(); ++index) {
+                initial_local[index] = local_point(initial_vertices[index], initial_pivot, interaction_initial_rotation_);
+            }
+            const auto initial_local_bounds = bounds_from_points(initial_local);
+            auto new_minimum = QPointF(initial_local_bounds.minimum.x, initial_local_bounds.minimum.y);
+            auto new_maximum = QPointF(initial_local_bounds.maximum.x, initial_local_bounds.maximum.y);
+            const auto current_local = local_point(current_scene, initial_pivot, interaction_initial_rotation_);
 
             switch (active_resize_handle_) {
             case ResizeHandle::TopLeft:
-            case ResizeHandle::TopRight:
-            case ResizeHandle::BottomRight:
-            case ResizeHandle::BottomLeft: {
-                QPointF anchor;
-                switch (active_resize_handle_) {
-                case ResizeHandle::TopLeft:
-                    anchor = initial_frame.bottom_right;
-                    break;
-                case ResizeHandle::TopRight:
-                    anchor = initial_frame.bottom_left;
-                    break;
-                case ResizeHandle::BottomRight:
-                    anchor = initial_frame.top_left;
-                    break;
-                case ResizeHandle::BottomLeft:
-                    anchor = initial_frame.top_right;
-                    break;
-                case ResizeHandle::Top:
-                case ResizeHandle::Right:
-                case ResizeHandle::Bottom:
-                case ResizeHandle::Left:
-                case ResizeHandle::None:
-                    break;
-                }
-
-                const auto delta = current_scene - anchor;
-                const auto width = std::max(std::abs(dot_product(delta, axis_x)), 0.001);
-                const auto height = std::max(std::abs(dot_product(delta, axis_y)), 0.001);
-                const auto center = anchor + axis_x * (dot_product(delta, axis_x) / 2.0)
-                    + axis_y * (dot_product(delta, axis_y) / 2.0);
-                bounds = make_bounds(center, width / 2.0, height / 2.0);
+                new_minimum.setX(current_local.x());
+                new_maximum.setY(current_local.y());
                 break;
-            }
-            case ResizeHandle::Left:
-            case ResizeHandle::Right: {
-                const auto anchor = active_resize_handle_ == ResizeHandle::Left ? initial_frame.right_center : initial_frame.left_center;
-                const auto delta = current_scene - anchor;
-                const auto width = std::max(std::abs(dot_product(delta, axis_x)), 0.001);
-                const auto direction = dot_product(delta, axis_x) >= 0.0 ? 1.0 : -1.0;
-                const auto center = anchor + axis_x * (direction * width / 2.0);
-                bounds = make_bounds(center, width / 2.0, polivex::core::rectangle_height(interaction_initial_bounds_) / 2.0);
-                break;
-            }
             case ResizeHandle::Top:
-            case ResizeHandle::Bottom: {
-                const auto anchor = active_resize_handle_ == ResizeHandle::Top ? initial_frame.bottom_center : initial_frame.top_center;
-                const auto delta = current_scene - anchor;
-                const auto height = std::max(std::abs(dot_product(delta, axis_y)), 0.001);
-                const auto direction = dot_product(delta, axis_y) >= 0.0 ? 1.0 : -1.0;
-                const auto center = anchor + axis_y * (direction * height / 2.0);
-                bounds = make_bounds(center, polivex::core::rectangle_width(interaction_initial_bounds_) / 2.0, height / 2.0);
+                new_maximum.setY(current_local.y());
                 break;
-            }
+            case ResizeHandle::TopRight:
+                new_maximum.setX(current_local.x());
+                new_maximum.setY(current_local.y());
+                break;
+            case ResizeHandle::Right:
+                new_maximum.setX(current_local.x());
+                break;
+            case ResizeHandle::BottomRight:
+                new_maximum.setX(current_local.x());
+                new_minimum.setY(current_local.y());
+                break;
+            case ResizeHandle::Bottom:
+                new_minimum.setY(current_local.y());
+                break;
+            case ResizeHandle::BottomLeft:
+                new_minimum.setX(current_local.x());
+                new_minimum.setY(current_local.y());
+                break;
+            case ResizeHandle::Left:
+                new_minimum.setX(current_local.x());
+                break;
             case ResizeHandle::None:
                 break;
             }
 
-            if (selected->rotation_degrees == 0.0) {
-                const auto scale = kBasePixelsPerUnit * state_.zoom;
+            if (std::abs(new_maximum.x() - new_minimum.x()) <= 1e-6) {
+                new_maximum.setX(new_minimum.x() + 0.001);
+            }
+            if (std::abs(new_maximum.y() - new_minimum.y()) <= 1e-6) {
+                new_maximum.setY(new_minimum.y() + 0.001);
+            }
+
+            if (std::abs(interaction_initial_rotation_) <= 1e-6 && new_minimum.x() <= new_maximum.x()
+                && new_minimum.y() <= new_maximum.y()) {
+                const polivex::core::Rectangle2D bounds {
+                    {new_minimum.x(), new_minimum.y()},
+                    {new_maximum.x(), new_maximum.y()},
+                };
                 std::vector<AxisCandidate> selected_x;
                 std::vector<AxisCandidate> selected_y;
                 std::vector<AxisCandidate> other_x;
@@ -577,10 +922,10 @@ void ViewportWidget::mouseMoveEvent(QMouseEvent* event)
                 if (snap_x.matched) {
                     if (active_resize_handle_ == ResizeHandle::TopLeft || active_resize_handle_ == ResizeHandle::Left
                         || active_resize_handle_ == ResizeHandle::BottomLeft) {
-                        bounds.minimum.x += snap_x.delta_scene;
+                        new_minimum.rx() += snap_x.delta_scene;
                     } else if (active_resize_handle_ == ResizeHandle::TopRight || active_resize_handle_ == ResizeHandle::Right
                         || active_resize_handle_ == ResizeHandle::BottomRight) {
-                        bounds.maximum.x += snap_x.delta_scene;
+                        new_maximum.rx() += snap_x.delta_scene;
                     }
                     const auto guide_x = scene_to_screen(QPointF(snap_x.guide_scene, 0.0)).x();
                     snap_guides_.push_back(QLineF(QPointF(guide_x, 0.0), QPointF(guide_x, height())));
@@ -588,58 +933,122 @@ void ViewportWidget::mouseMoveEvent(QMouseEvent* event)
                 if (snap_y.matched) {
                     if (active_resize_handle_ == ResizeHandle::TopLeft || active_resize_handle_ == ResizeHandle::Top
                         || active_resize_handle_ == ResizeHandle::TopRight) {
-                        bounds.maximum.y += snap_y.delta_scene;
+                        new_maximum.ry() += snap_y.delta_scene;
                     } else if (active_resize_handle_ == ResizeHandle::BottomLeft || active_resize_handle_ == ResizeHandle::Bottom
                         || active_resize_handle_ == ResizeHandle::BottomRight) {
-                        bounds.minimum.y += snap_y.delta_scene;
+                        new_minimum.ry() += snap_y.delta_scene;
                     }
                     const auto guide_y = scene_to_screen(QPointF(0.0, snap_y.guide_scene)).y();
                     snap_guides_.push_back(QLineF(QPointF(0.0, guide_y), QPointF(width(), guide_y)));
                 }
             }
 
-            emit selected_rectangle_resize_requested(bounds);
+            VertexArray resized_vertices {};
+            for (std::size_t index = 0; index < initial_local.size(); ++index) {
+                const auto resized_local = QPointF(
+                    remap_value(
+                        initial_local[index].x(), initial_local_bounds.minimum.x, initial_local_bounds.maximum.x,
+                        new_minimum.x(), new_maximum.x()),
+                    remap_value(
+                        initial_local[index].y(), initial_local_bounds.minimum.y, initial_local_bounds.maximum.y,
+                        new_minimum.y(), new_maximum.y()));
+                resized_vertices[index] = world_point(resized_local, initial_pivot, interaction_initial_rotation_);
+            }
+
+            const auto new_local_center = QPointF(
+                (new_minimum.x() + new_maximum.x()) / 2.0,
+                (new_minimum.y() + new_maximum.y()) / 2.0);
+            const auto new_pivot = world_point(new_local_center, initial_pivot, interaction_initial_rotation_);
+            emit_shape(resized_vertices, new_pivot, interaction_initial_rotation_, selected->has_custom_vertices);
             update();
             return;
         }
 
         if (is_rotating_selected_rectangle_) {
-            const auto center = to_point(polivex::core::rectangle_center(interaction_initial_bounds_));
-            const auto current_angle = std::atan2(current_scene.y() - center.y(), current_scene.x() - center.x());
+            const auto current_angle = std::atan2(current_scene.y() - initial_pivot.y(), current_scene.x() - initial_pivot.x());
             const auto delta_degrees = (current_angle - interaction_initial_mouse_angle_) * 180.0 / std::numbers::pi;
-            emit selected_rectangle_rotation_requested(interaction_initial_rotation_ + delta_degrees);
+            VertexArray rotated_vertices {};
+            for (std::size_t index = 0; index < interaction_initial_vertices_.size(); ++index) {
+                rotated_vertices[index] = rotate_point(
+                    to_point(interaction_initial_vertices_[index]), initial_pivot, delta_degrees);
+            }
+            emit_shape(
+                rotated_vertices, initial_pivot, interaction_initial_rotation_ + delta_degrees,
+                selected->has_custom_vertices);
+            update();
+            return;
+        }
+
+        if (is_editing_selected_vertex_) {
+            VertexArray updated_vertices {};
+            for (std::size_t index = 0; index < interaction_initial_vertices_.size(); ++index) {
+                updated_vertices[index] = to_point(interaction_initial_vertices_[index]);
+            }
+
+            auto snapped_scene = current_scene;
+            const auto snap = best_point_snap({current_scene}, other_snap_points(), scale);
+            if (snap.matched) {
+                snapped_scene += snap.delta_scene;
+                snap_guides_.push_back(QLineF(scene_to_screen(current_scene), scene_to_screen(snap.to_scene)));
+            }
+
+            if (active_vertex_index_ >= 0 && active_vertex_index_ < static_cast<int>(updated_vertices.size())) {
+                updated_vertices[static_cast<std::size_t>(active_vertex_index_)] = snapped_scene;
+            }
+
+            VertexArray updated_local {};
+            for (std::size_t index = 0; index < updated_vertices.size(); ++index) {
+                updated_local[index] = local_point(updated_vertices[index], initial_pivot, interaction_initial_rotation_);
+            }
+            const auto local_bounds = bounds_from_points(updated_local);
+            const auto local_center = QPointF(
+                (local_bounds.minimum.x + local_bounds.maximum.x) / 2.0,
+                (local_bounds.minimum.y + local_bounds.maximum.y) / 2.0);
+            const auto new_pivot = world_point(local_center, initial_pivot, interaction_initial_rotation_);
+            emit_shape(updated_vertices, new_pivot, interaction_initial_rotation_, true);
             update();
             return;
         }
 
         if (is_adjusting_corner_radius_) {
-            const auto center = to_point(polivex::core::rectangle_center(interaction_initial_bounds_));
-            const auto local_point = inverse_rotate_point(current_scene, center, interaction_initial_rotation_);
+            if (active_corner_radius_vertex_index_ >= 0) {
+                emit selected_rectangle_vertex_corner_radius_requested(
+                    active_corner_radius_vertex_index_,
+                    custom_corner_radius_from_point(
+                        *selected, static_cast<std::size_t>(active_corner_radius_vertex_index_), current_scene));
+                update();
+                return;
+            }
+
+            const auto center = initial_pivot;
+            const auto current_local_point = local_point(current_scene, center, interaction_initial_rotation_);
+            const auto initial_local_bounds = local_bounds_from_vertices(
+                interaction_initial_vertices_, center, interaction_initial_rotation_);
             double radius = interaction_initial_corner_radius_;
             switch (active_corner_radius_handle_) {
             case CornerRadiusHandle::TopLeft:
-                radius = std::clamp(std::min(local_point.x() - interaction_initial_bounds_.minimum.x,
-                                           interaction_initial_bounds_.maximum.y - local_point.y()),
-                    0.0, std::min(polivex::core::rectangle_width(interaction_initial_bounds_),
-                              polivex::core::rectangle_height(interaction_initial_bounds_)) / 2.0);
+                radius = std::clamp(std::min(current_local_point.x() - initial_local_bounds.minimum.x,
+                                           initial_local_bounds.maximum.y - current_local_point.y()),
+                    0.0, std::min(polivex::core::rectangle_width(initial_local_bounds),
+                              polivex::core::rectangle_height(initial_local_bounds)) / 2.0);
                 break;
             case CornerRadiusHandle::TopRight:
-                radius = std::clamp(std::min(interaction_initial_bounds_.maximum.x - local_point.x(),
-                                           interaction_initial_bounds_.maximum.y - local_point.y()),
-                    0.0, std::min(polivex::core::rectangle_width(interaction_initial_bounds_),
-                              polivex::core::rectangle_height(interaction_initial_bounds_)) / 2.0);
+                radius = std::clamp(std::min(initial_local_bounds.maximum.x - current_local_point.x(),
+                                           initial_local_bounds.maximum.y - current_local_point.y()),
+                    0.0, std::min(polivex::core::rectangle_width(initial_local_bounds),
+                              polivex::core::rectangle_height(initial_local_bounds)) / 2.0);
                 break;
             case CornerRadiusHandle::BottomRight:
-                radius = std::clamp(std::min(interaction_initial_bounds_.maximum.x - local_point.x(),
-                                           local_point.y() - interaction_initial_bounds_.minimum.y),
-                    0.0, std::min(polivex::core::rectangle_width(interaction_initial_bounds_),
-                              polivex::core::rectangle_height(interaction_initial_bounds_)) / 2.0);
+                radius = std::clamp(std::min(initial_local_bounds.maximum.x - current_local_point.x(),
+                                           current_local_point.y() - initial_local_bounds.minimum.y),
+                    0.0, std::min(polivex::core::rectangle_width(initial_local_bounds),
+                              polivex::core::rectangle_height(initial_local_bounds)) / 2.0);
                 break;
             case CornerRadiusHandle::BottomLeft:
-                radius = std::clamp(std::min(local_point.x() - interaction_initial_bounds_.minimum.x,
-                                           local_point.y() - interaction_initial_bounds_.minimum.y),
-                    0.0, std::min(polivex::core::rectangle_width(interaction_initial_bounds_),
-                              polivex::core::rectangle_height(interaction_initial_bounds_)) / 2.0);
+                radius = std::clamp(std::min(current_local_point.x() - initial_local_bounds.minimum.x,
+                                           current_local_point.y() - initial_local_bounds.minimum.y),
+                    0.0, std::min(polivex::core::rectangle_width(initial_local_bounds),
+                              polivex::core::rectangle_height(initial_local_bounds)) / 2.0);
                 break;
             case CornerRadiusHandle::None:
                 break;
@@ -691,6 +1100,8 @@ void ViewportWidget::mousePressEvent(QMouseEvent* event)
         auto begin_pending_move = [&](const polivex::core::RectangleEntity& rectangle, bool allow_toggle) {
             interaction_press_scene_ = screen_to_scene(event->position());
             interaction_initial_bounds_ = rectangle.bounds;
+            interaction_initial_pivot_ = rectangle.pivot;
+            interaction_initial_vertices_ = rectangle.vertices;
             interaction_initial_rotation_ = rectangle.rotation_degrees;
             interaction_initial_corner_radius_ = rectangle.corner_radius;
             last_move_delta_ = {0.0, 0.0};
@@ -703,9 +1114,12 @@ void ViewportWidget::mousePressEvent(QMouseEvent* event)
             interaction_mode_ = selection_hit.mode;
             interaction_press_scene_ = screen_to_scene(event->position());
             interaction_initial_bounds_ = rectangle.bounds;
+            interaction_initial_pivot_ = rectangle.pivot;
+            interaction_initial_vertices_ = rectangle.vertices;
             interaction_initial_rotation_ = rectangle.rotation_degrees;
             interaction_initial_corner_radius_ = rectangle.corner_radius;
             last_move_delta_ = {0.0, 0.0};
+            active_corner_radius_vertex_index_ = -1;
 
             switch (selection_hit.mode) {
             case InteractionMode::Move:
@@ -717,14 +1131,19 @@ void ViewportWidget::mousePressEvent(QMouseEvent* event)
                 break;
             case InteractionMode::Rotate: {
                 is_rotating_selected_rectangle_ = true;
-                const auto center = to_point(polivex::core::rectangle_center(interaction_initial_bounds_));
+                const auto center = to_point(interaction_initial_pivot_);
                 interaction_initial_mouse_angle_ = std::atan2(interaction_press_scene_.y() - center.y(),
                     interaction_press_scene_.x() - center.x());
                 break;
             }
+            case InteractionMode::EditVertex:
+                is_editing_selected_vertex_ = true;
+                active_vertex_index_ = selection_hit.vertex_index;
+                break;
             case InteractionMode::CornerRadius:
                 is_adjusting_corner_radius_ = true;
                 active_corner_radius_handle_ = selection_hit.corner_radius_handle;
+                active_corner_radius_vertex_index_ = selection_hit.corner_radius_vertex_index;
                 break;
             case InteractionMode::None:
                 break;
@@ -763,6 +1182,7 @@ void ViewportWidget::mousePressEvent(QMouseEvent* event)
                 selected_entity_ids_.insert(selected_entity_ids_.begin(), *hit);
             }
             selection_handle_mode_ = SelectionHandleMode::Scale;
+            visible_vertex_corner_radius_index_ = -1;
         } else {
             selected_entity_ids_.clear();
             if (hit.has_value()) {
@@ -770,6 +1190,7 @@ void ViewportWidget::mousePressEvent(QMouseEvent* event)
             }
             if (!hit_is_primary) {
                 selection_handle_mode_ = SelectionHandleMode::Scale;
+                visible_vertex_corner_radius_index_ = -1;
             }
         }
         emit rectangle_selected(hit);
@@ -800,6 +1221,37 @@ void ViewportWidget::mousePressEvent(QMouseEvent* event)
     }
 }
 
+void ViewportWidget::mouseDoubleClickEvent(QMouseEvent* event)
+{
+    if (event->button() != Qt::LeftButton || state_.active_tool != polivex::app::ActiveTool::Select
+        || selection_handle_mode_ != SelectionHandleMode::Vertices) {
+        QWidget::mouseDoubleClickEvent(event);
+        return;
+    }
+
+    const auto selected = selected_rectangle();
+    if (!selected.has_value()) {
+        QWidget::mouseDoubleClickEvent(event);
+        return;
+    }
+
+    const auto hit = hit_test_selection(*selected, event->position());
+    if (hit.mode != InteractionMode::EditVertex || hit.vertex_index < 0) {
+        QWidget::mouseDoubleClickEvent(event);
+        return;
+    }
+
+    visible_vertex_corner_radius_index_ = hit.vertex_index;
+    const auto current_radius = selected->corner_radii[static_cast<std::size_t>(hit.vertex_index)];
+    if (current_radius <= 1e-6) {
+        emit selected_rectangle_vertex_corner_radius_requested(
+            hit.vertex_index,
+            default_custom_corner_radius(*selected, static_cast<std::size_t>(hit.vertex_index)));
+    }
+    update();
+    event->accept();
+}
+
 void ViewportWidget::mouseReleaseEvent(QMouseEvent* event)
 {
     if (event->button() == Qt::MiddleButton && is_panning_) {
@@ -817,7 +1269,7 @@ void ViewportWidget::mouseReleaseEvent(QMouseEvent* event)
         snap_guides_.clear();
         if (should_toggle_mode) {
             selection_handle_mode_ = selection_handle_mode_ == SelectionHandleMode::Scale
-                ? SelectionHandleMode::Transform
+                ? SelectionHandleMode::Vertices
                 : SelectionHandleMode::Scale;
         }
         apply_hover_cursor(event->position());
@@ -838,16 +1290,19 @@ void ViewportWidget::mouseReleaseEvent(QMouseEvent* event)
     }
 
     if (event->button() == Qt::LeftButton && (is_moving_selected_rectangle_ || is_resizing_selected_rectangle_
-                                                 || is_rotating_selected_rectangle_
+                                                 || is_rotating_selected_rectangle_ || is_editing_selected_vertex_
                                                  || is_adjusting_corner_radius_)) {
         pending_toggle_selection_mode_ = false;
         is_moving_selected_rectangle_ = false;
         is_resizing_selected_rectangle_ = false;
         is_rotating_selected_rectangle_ = false;
+        is_editing_selected_vertex_ = false;
         is_adjusting_corner_radius_ = false;
         interaction_mode_ = InteractionMode::None;
         active_resize_handle_ = ResizeHandle::None;
         active_corner_radius_handle_ = CornerRadiusHandle::None;
+        active_corner_radius_vertex_index_ = -1;
+        active_vertex_index_ = -1;
         last_move_delta_ = {0.0, 0.0};
         snap_guides_.clear();
         apply_hover_cursor(event->position());
@@ -915,6 +1370,7 @@ ViewportWidget::SelectionHit ViewportWidget::hit_test_selection(
     SelectionHit hit;
     const auto scale = kBasePixelsPerUnit * state_.zoom;
     const auto frame = make_frame_geometry(rectangle);
+    const auto vertices = rectangle_vertices(rectangle);
     const auto to_screen = [this](const QPointF& point) { return scene_to_screen(point); };
     const auto corner_handles = std::array {
         std::pair {ResizeHandle::TopLeft, to_screen(frame.top_left)},
@@ -928,18 +1384,35 @@ ViewportWidget::SelectionHit ViewportWidget::hit_test_selection(
         std::pair {ResizeHandle::Bottom, to_screen(frame.bottom_center)},
         std::pair {ResizeHandle::Left, to_screen(frame.left_center)},
     };
+    const auto rotation_handles = std::array {
+        rotation_handle_position_screen(to_screen(frame.top_left), to_screen(frame.center), 16.0),
+        rotation_handle_position_screen(to_screen(frame.top_right), to_screen(frame.center), 16.0),
+        rotation_handle_position_screen(to_screen(frame.bottom_right), to_screen(frame.center), 16.0),
+        rotation_handle_position_screen(to_screen(frame.bottom_left), to_screen(frame.center), 16.0),
+    };
 
     if (selection_handle_mode_ == SelectionHandleMode::Scale) {
-        const auto radius_handles = std::array {
-            std::pair {CornerRadiusHandle::TopLeft, to_screen(radius_handle_position(rectangle, CornerRadiusHandle::TopLeft, scale))},
-            std::pair {CornerRadiusHandle::TopRight, to_screen(radius_handle_position(rectangle, CornerRadiusHandle::TopRight, scale))},
-            std::pair {CornerRadiusHandle::BottomRight, to_screen(radius_handle_position(rectangle, CornerRadiusHandle::BottomRight, scale))},
-            std::pair {CornerRadiusHandle::BottomLeft, to_screen(radius_handle_position(rectangle, CornerRadiusHandle::BottomLeft, scale))},
-        };
-        for (const auto& [handle, position] : radius_handles) {
-            if (contains_handle(screen_position, position, kRadiusHandleSizePx)) {
-                hit.mode = InteractionMode::CornerRadius;
-                hit.corner_radius_handle = handle;
+        if (!rectangle.has_custom_vertices) {
+            const auto radius_handles = std::array {
+                std::pair {CornerRadiusHandle::TopLeft, to_screen(radius_handle_position(rectangle, CornerRadiusHandle::TopLeft, scale))},
+                std::pair {CornerRadiusHandle::TopRight, to_screen(radius_handle_position(rectangle, CornerRadiusHandle::TopRight, scale))},
+                std::pair {CornerRadiusHandle::BottomRight, to_screen(radius_handle_position(rectangle, CornerRadiusHandle::BottomRight, scale))},
+                std::pair {CornerRadiusHandle::BottomLeft, to_screen(radius_handle_position(rectangle, CornerRadiusHandle::BottomLeft, scale))},
+            };
+            for (const auto& [handle, position] : radius_handles) {
+                if (contains_handle(screen_position, position, kRadiusHandleSizePx + 2.0)) {
+                    hit.mode = InteractionMode::CornerRadius;
+                    hit.corner_radius_handle = handle;
+                    hit.cursor = Qt::CrossCursor;
+                    hit.matched = true;
+                    return hit;
+                }
+            }
+        }
+
+        for (const auto& rotation_handle : rotation_handles) {
+            if (contains_handle(screen_position, rotation_handle, kHandleSizePx)) {
+                hit.mode = InteractionMode::Rotate;
                 hit.cursor = Qt::CrossCursor;
                 hit.matched = true;
                 return hit;
@@ -966,20 +1439,24 @@ ViewportWidget::SelectionHit ViewportWidget::hit_test_selection(
             }
         }
     } else {
-        for (const auto& [handle, position] : corner_handles) {
-            if (contains_handle(screen_position, position, kHandleSizePx)) {
-                hit.mode = InteractionMode::Rotate;
-                hit.resize_handle = handle;
+        if (visible_vertex_corner_radius_index_ >= 0
+            && visible_vertex_corner_radius_index_ < static_cast<int>(rectangle.vertices.size())) {
+            const auto radius_handle_position =
+                to_screen(custom_corner_radius_handle_position(rectangle, static_cast<std::size_t>(visible_vertex_corner_radius_index_)));
+            if (contains_handle(screen_position, radius_handle_position, kRadiusHandleSizePx + 2.0)) {
+                hit.mode = InteractionMode::CornerRadius;
+                hit.corner_radius_vertex_index = visible_vertex_corner_radius_index_;
                 hit.cursor = Qt::CrossCursor;
                 hit.matched = true;
                 return hit;
             }
         }
 
-        for (const auto& [handle, position] : edge_handles) {
+        for (int index = 0; index < static_cast<int>(corner_handles.size()); ++index) {
+            const auto& position = corner_handles[static_cast<std::size_t>(index)].second;
             if (contains_handle(screen_position, position, kHandleSizePx)) {
-                hit.mode = InteractionMode::Rotate;
-                hit.resize_handle = handle;
+                hit.mode = InteractionMode::EditVertex;
+                hit.vertex_index = index;
                 hit.cursor = Qt::CrossCursor;
                 hit.matched = true;
                 return hit;
@@ -987,49 +1464,51 @@ ViewportWidget::SelectionHit ViewportWidget::hit_test_selection(
         }
     }
 
-    const auto center = to_point(polivex::core::rectangle_center(rectangle.bounds));
-    const auto local_point = inverse_rotate_point(screen_to_scene(screen_position), center, rectangle.rotation_degrees);
-    const auto grab = kEdgeResizeGrabPx / std::max(scale, 0.0001);
-    const auto corner_guard = std::max(grab * 2.0, kHandleSizePx / std::max(scale, 0.0001));
-    const auto& bounds = rectangle.bounds;
+    if (selection_handle_mode_ == SelectionHandleMode::Scale) {
+        const auto center = to_point(rectangle.pivot);
+        const auto scene_local_point = local_point(screen_to_scene(screen_position), center, rectangle.rotation_degrees) + center;
+        const auto grab = kEdgeResizeGrabPx / std::max(scale, 0.0001);
+        const auto corner_guard = std::max(grab * 2.0, kHandleSizePx / std::max(scale, 0.0001));
+        const auto& bounds = rectangle.bounds;
 
-    const auto within_vertical_span = [bounds, corner_guard](double y) {
-        return y > bounds.minimum.y + corner_guard && y < bounds.maximum.y - corner_guard;
-    };
-    const auto within_horizontal_span = [bounds, corner_guard](double x) {
-        return x > bounds.minimum.x + corner_guard && x < bounds.maximum.x - corner_guard;
-    };
+        const auto within_vertical_span = [bounds, corner_guard](double y) {
+            return y > bounds.minimum.y + corner_guard && y < bounds.maximum.y - corner_guard;
+        };
+        const auto within_horizontal_span = [bounds, corner_guard](double x) {
+            return x > bounds.minimum.x + corner_guard && x < bounds.maximum.x - corner_guard;
+        };
 
-    if (std::abs(local_point.x() - bounds.minimum.x) <= grab && within_vertical_span(local_point.y())) {
-        hit.mode = InteractionMode::Resize;
-        hit.resize_handle = ResizeHandle::Left;
-        hit.cursor = cursor_for_resize_handle(hit.resize_handle);
-        hit.matched = true;
-        return hit;
-    }
-    if (std::abs(local_point.x() - bounds.maximum.x) <= grab && within_vertical_span(local_point.y())) {
-        hit.mode = InteractionMode::Resize;
-        hit.resize_handle = ResizeHandle::Right;
-        hit.cursor = cursor_for_resize_handle(hit.resize_handle);
-        hit.matched = true;
-        return hit;
-    }
-    if (std::abs(local_point.y() - bounds.maximum.y) <= grab && within_horizontal_span(local_point.x())) {
-        hit.mode = InteractionMode::Resize;
-        hit.resize_handle = ResizeHandle::Top;
-        hit.cursor = cursor_for_resize_handle(hit.resize_handle);
-        hit.matched = true;
-        return hit;
-    }
-    if (std::abs(local_point.y() - bounds.minimum.y) <= grab && within_horizontal_span(local_point.x())) {
-        hit.mode = InteractionMode::Resize;
-        hit.resize_handle = ResizeHandle::Bottom;
-        hit.cursor = cursor_for_resize_handle(hit.resize_handle);
-        hit.matched = true;
-        return hit;
+        if (std::abs(scene_local_point.x() - bounds.minimum.x) <= grab && within_vertical_span(scene_local_point.y())) {
+            hit.mode = InteractionMode::Resize;
+            hit.resize_handle = ResizeHandle::Left;
+            hit.cursor = cursor_for_resize_handle(hit.resize_handle);
+            hit.matched = true;
+            return hit;
+        }
+        if (std::abs(scene_local_point.x() - bounds.maximum.x) <= grab && within_vertical_span(scene_local_point.y())) {
+            hit.mode = InteractionMode::Resize;
+            hit.resize_handle = ResizeHandle::Right;
+            hit.cursor = cursor_for_resize_handle(hit.resize_handle);
+            hit.matched = true;
+            return hit;
+        }
+        if (std::abs(scene_local_point.y() - bounds.maximum.y) <= grab && within_horizontal_span(scene_local_point.x())) {
+            hit.mode = InteractionMode::Resize;
+            hit.resize_handle = ResizeHandle::Top;
+            hit.cursor = cursor_for_resize_handle(hit.resize_handle);
+            hit.matched = true;
+            return hit;
+        }
+        if (std::abs(scene_local_point.y() - bounds.minimum.y) <= grab && within_horizontal_span(scene_local_point.x())) {
+            hit.mode = InteractionMode::Resize;
+            hit.resize_handle = ResizeHandle::Bottom;
+            hit.cursor = cursor_for_resize_handle(hit.resize_handle);
+            hit.matched = true;
+            return hit;
+        }
     }
 
-    if (polivex::core::rectangle_contains(bounds, {local_point.x(), local_point.y()})) {
+    if (point_in_polygon(vertices, screen_to_scene(screen_position))) {
         hit.mode = InteractionMode::Move;
         hit.cursor = Qt::SizeAllCursor;
         hit.matched = true;
@@ -1133,25 +1612,24 @@ void ViewportWidget::draw_rectangles(QPainter& painter) const
         const auto style = rectangle.kind == polivex::core::RectangleKind::Vector
             ? rectangle.vector_style.value_or(polivex::core::VectorStyle {})
             : polivex::core::VectorStyle {101, 196, 102, 25};
-        const auto border = rectangle.kind == polivex::core::RectangleKind::Vector ? QColor(style.red, style.green, style.blue)
-                                                                                    : QColor("#65c466");
+        const auto border = rectangle.kind == polivex::core::RectangleKind::Vector
+            ? QColor(style.stroke_red, style.stroke_green, style.stroke_blue, style.stroke_opacity)
+            : QColor("#65c466");
         const auto fill = rectangle.kind == polivex::core::RectangleKind::Vector
             ? QColor(style.red, style.green, style.blue, style.opacity)
             : QColor(101, 196, 102, 25);
 
         painter.save();
-        const auto center = to_point(polivex::core::rectangle_center(rectangle.bounds));
-        painter.translate(center);
-        painter.rotate(rectangle.rotation_degrees);
-        painter.translate(-center);
-        const auto selected = is_selected(rectangle.id);
-        painter.setPen(QPen(selected ? QColor("#f3bd5b") : border, (selected ? 2.0 : 2.0) / scale));
+        if (style.stroke_width > 0.0) {
+            QPen pen(border, style.stroke_width / scale);
+            pen.setJoinStyle(Qt::RoundJoin);
+            pen.setCapStyle(Qt::RoundCap);
+            painter.setPen(pen);
+        } else {
+            painter.setPen(Qt::NoPen);
+        }
         painter.setBrush(fill);
-        const QRectF local_rect {
-            QPointF(rectangle.bounds.minimum.x, rectangle.bounds.minimum.y),
-            QPointF(rectangle.bounds.maximum.x, rectangle.bounds.maximum.y),
-        };
-        painter.drawRoundedRect(local_rect.normalized(), rectangle.corner_radius, rectangle.corner_radius);
+        painter.drawPath(rounded_polygon_path(rectangle_vertices(rectangle), effective_corner_radii(rectangle)));
         painter.restore();
     };
 
@@ -1198,15 +1676,15 @@ void ViewportWidget::draw_selection_overlay(QPainter& painter) const
         painter.setPen(QPen(color.darker(120), 1.0));
         painter.drawEllipse(QRectF(point.x() - size / 2.0, point.y() - size / 2.0, size, size));
     };
-    const auto draw_radius_handle = [&painter](const QPointF& point, double size, const QColor& color) {
-        painter.setBrush(color);
-        painter.setPen(QPen(color.darker(120), 1.0));
+    const auto draw_outline_circle_handle = [&painter](const QPointF& point, double size, const QColor& color) {
+        painter.setBrush(Qt::NoBrush);
+        painter.setPen(QPen(color, 1.5));
         painter.drawEllipse(QRectF(point.x() - size / 2.0, point.y() - size / 2.0, size, size));
     };
 
     const auto handle_color = QColor("#f3bd5b");
     const auto transform_color = QColor("#67d4ff");
-    const auto radius_color = QColor("#ff7ab3");
+    const auto radius_color = QColor("#f9a03f");
     if (selection_handle_mode_ == SelectionHandleMode::Scale) {
         draw_square_handle(to_screen(frame.top_left), kHandleSizePx, handle_color);
         draw_square_handle(to_screen(frame.top_center), kHandleSizePx, handle_color);
@@ -1217,24 +1695,42 @@ void ViewportWidget::draw_selection_overlay(QPainter& painter) const
         draw_square_handle(to_screen(frame.bottom_left), kHandleSizePx, handle_color);
         draw_square_handle(to_screen(frame.left_center), kHandleSizePx, handle_color);
 
-        const auto scale = kBasePixelsPerUnit * state_.zoom;
-        draw_radius_handle(
-            to_screen(radius_handle_position(*selected, CornerRadiusHandle::TopLeft, scale)), kRadiusHandleSizePx, radius_color);
-        draw_radius_handle(
-            to_screen(radius_handle_position(*selected, CornerRadiusHandle::TopRight, scale)), kRadiusHandleSizePx, radius_color);
-        draw_radius_handle(
-            to_screen(radius_handle_position(*selected, CornerRadiusHandle::BottomRight, scale)), kRadiusHandleSizePx, radius_color);
-        draw_radius_handle(
-            to_screen(radius_handle_position(*selected, CornerRadiusHandle::BottomLeft, scale)), kRadiusHandleSizePx, radius_color);
+        draw_square_handle(
+            rotation_handle_position_screen(to_screen(frame.top_left), to_screen(frame.center), 16.0), kHandleSizePx - 1.0,
+            transform_color);
+        draw_square_handle(
+            rotation_handle_position_screen(to_screen(frame.top_right), to_screen(frame.center), 16.0), kHandleSizePx - 1.0,
+            transform_color);
+        draw_square_handle(
+            rotation_handle_position_screen(to_screen(frame.bottom_right), to_screen(frame.center), 16.0), kHandleSizePx - 1.0,
+            transform_color);
+        draw_square_handle(
+            rotation_handle_position_screen(to_screen(frame.bottom_left), to_screen(frame.center), 16.0), kHandleSizePx - 1.0,
+            transform_color);
+
+        if (!selected->has_custom_vertices) {
+            const auto scale = kBasePixelsPerUnit * state_.zoom;
+            draw_outline_circle_handle(
+                to_screen(radius_handle_position(*selected, CornerRadiusHandle::TopLeft, scale)), kRadiusHandleSizePx, radius_color);
+            draw_outline_circle_handle(
+                to_screen(radius_handle_position(*selected, CornerRadiusHandle::TopRight, scale)), kRadiusHandleSizePx, radius_color);
+            draw_outline_circle_handle(
+                to_screen(radius_handle_position(*selected, CornerRadiusHandle::BottomRight, scale)), kRadiusHandleSizePx, radius_color);
+            draw_outline_circle_handle(
+                to_screen(radius_handle_position(*selected, CornerRadiusHandle::BottomLeft, scale)), kRadiusHandleSizePx, radius_color);
+        }
     } else {
         draw_round_handle(to_screen(frame.top_left), kHandleSizePx, transform_color);
-        draw_round_handle(to_screen(frame.top_center), kHandleSizePx, transform_color);
         draw_round_handle(to_screen(frame.top_right), kHandleSizePx, transform_color);
-        draw_round_handle(to_screen(frame.right_center), kHandleSizePx, transform_color);
         draw_round_handle(to_screen(frame.bottom_right), kHandleSizePx, transform_color);
-        draw_round_handle(to_screen(frame.bottom_center), kHandleSizePx, transform_color);
         draw_round_handle(to_screen(frame.bottom_left), kHandleSizePx, transform_color);
-        draw_round_handle(to_screen(frame.left_center), kHandleSizePx, transform_color);
+        if (visible_vertex_corner_radius_index_ >= 0
+            && visible_vertex_corner_radius_index_ < static_cast<int>(selected->vertices.size())) {
+            draw_outline_circle_handle(
+                to_screen(custom_corner_radius_handle_position(*selected, static_cast<std::size_t>(visible_vertex_corner_radius_index_))),
+                kRadiusHandleSizePx,
+                radius_color);
+        }
         painter.setPen(QPen(transform_color, 1.5));
         painter.drawLine(to_screen(frame.center) + QPointF(-6.0, 0.0), to_screen(frame.center) + QPointF(6.0, 0.0));
         painter.drawLine(to_screen(frame.center) + QPointF(0.0, -6.0), to_screen(frame.center) + QPointF(0.0, 6.0));
@@ -1294,9 +1790,7 @@ std::optional<polivex::core::EntityId> ViewportWidget::rectangle_at(const QPoint
 {
     const auto scene_position = screen_to_scene(screen_position);
     for (auto iterator = rectangles_.rbegin(); iterator != rectangles_.rend(); ++iterator) {
-        const auto center = to_point(polivex::core::rectangle_center(iterator->bounds));
-        const auto local_point = inverse_rotate_point(scene_position, center, iterator->rotation_degrees);
-        if (polivex::core::rectangle_contains(iterator->bounds, {local_point.x(), local_point.y()})) {
+        if (point_in_polygon(rectangle_vertices(*iterator), scene_position)) {
             return iterator->id;
         }
     }

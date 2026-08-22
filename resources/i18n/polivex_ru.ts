@@ -322,5 +322,41 @@ Sketch rectangles: %4</source>
         <source>Untitled</source>
         <translation>Безымянный</translation>
     </message>
+    <message>
+        <source>X</source>
+        <translation>X</translation>
+    </message>
+    <message>
+        <source>Y</source>
+        <translation>Y</translation>
+    </message>
+    <message>
+        <source>Width</source>
+        <translation>Ширина</translation>
+    </message>
+    <message>
+        <source>Height</source>
+        <translation>Высота</translation>
+    </message>
+    <message>
+        <source>Rotation</source>
+        <translation>Поворот</translation>
+    </message>
+    <message>
+        <source>Corner radius</source>
+        <translation>Радиус угла</translation>
+    </message>
+    <message>
+        <source>Stroke color</source>
+        <translation>Цвет обводки</translation>
+    </message>
+    <message>
+        <source>Stroke width</source>
+        <translation>Толщина обводки</translation>
+    </message>
+    <message>
+        <source>Opacity</source>
+        <translation>Прозрачность</translation>
+    </message>
 </context>
 </TS>

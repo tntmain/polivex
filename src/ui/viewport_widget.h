@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <optional>
 #include <span>
 #include <vector>
@@ -47,7 +48,11 @@ signals:
     void selected_rectangle_move_requested(const polivex::core::Point2D& delta);
     void selected_rectangle_resize_requested(const polivex::core::Rectangle2D& bounds);
     void selected_rectangle_rotation_requested(double rotation_degrees);
+    void selected_rectangle_shape_requested(
+        const std::array<polivex::core::Point2D, 4>& vertices, const polivex::core::Point2D& pivot,
+        double rotation_degrees, bool has_custom_vertices);
     void selected_rectangle_corner_radius_requested(double radius);
+    void selected_rectangle_vertex_corner_radius_requested(int vertex_index, double radius);
     void selected_rectangle_bring_to_front_requested();
     void selected_rectangle_send_to_back_requested();
     void selected_rectangle_move_up_requested();
@@ -60,12 +65,13 @@ public:
         Move,
         Resize,
         Rotate,
+        EditVertex,
         CornerRadius,
     };
 
     enum class SelectionHandleMode {
         Scale,
-        Transform,
+        Vertices,
     };
 
     enum class ResizeHandle {
@@ -91,6 +97,7 @@ public:
 protected:
     void mouseMoveEvent(QMouseEvent* event) override;
     void mousePressEvent(QMouseEvent* event) override;
+    void mouseDoubleClickEvent(QMouseEvent* event) override;
     void mouseReleaseEvent(QMouseEvent* event) override;
     void contextMenuEvent(QContextMenuEvent* event) override;
     void paintEvent(QPaintEvent* event) override;
@@ -101,6 +108,8 @@ private:
         InteractionMode mode = InteractionMode::None;
         ResizeHandle resize_handle = ResizeHandle::None;
         CornerRadiusHandle corner_radius_handle = CornerRadiusHandle::None;
+        int corner_radius_vertex_index = -1;
+        int vertex_index = -1;
         Qt::CursorShape cursor = Qt::ArrowCursor;
         bool matched = false;
     };
@@ -131,11 +140,15 @@ private:
     bool is_moving_selected_rectangle_ = false;
     bool is_resizing_selected_rectangle_ = false;
     bool is_rotating_selected_rectangle_ = false;
+    bool is_editing_selected_vertex_ = false;
     bool is_adjusting_corner_radius_ = false;
     InteractionMode interaction_mode_ = InteractionMode::None;
     SelectionHandleMode selection_handle_mode_ = SelectionHandleMode::Scale;
     ResizeHandle active_resize_handle_ = ResizeHandle::None;
     CornerRadiusHandle active_corner_radius_handle_ = CornerRadiusHandle::None;
+    int active_vertex_index_ = -1;
+    int visible_vertex_corner_radius_index_ = -1;
+    int active_corner_radius_vertex_index_ = -1;
     QPoint last_mouse_position_;
     QPoint pending_press_position_;
     polivex::core::Point2D rectangle_start_;
@@ -143,6 +156,8 @@ private:
     polivex::core::Point2D last_move_delta_;
     QPointF interaction_press_scene_;
     polivex::core::Rectangle2D interaction_initial_bounds_;
+    polivex::core::Point2D interaction_initial_pivot_;
+    std::array<polivex::core::Point2D, 4> interaction_initial_vertices_ {};
     double interaction_initial_rotation_ = 0.0;
     double interaction_initial_corner_radius_ = 0.0;
     double interaction_initial_mouse_angle_ = 0.0;

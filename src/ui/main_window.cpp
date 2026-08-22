@@ -1,6 +1,7 @@
 #include "ui/main_window.h"
 
 #include <algorithm>
+#include <array>
 #include <cstdint>
 #include <utility>
 #include <vector>
@@ -216,8 +217,11 @@ void MainWindow::create_layout()
     connect(viewport_, &ViewportWidget::selected_rectangle_move_requested, this, &MainWindow::handle_selected_move_requested);
     connect(viewport_, &ViewportWidget::selected_rectangle_resize_requested, this, &MainWindow::handle_selected_resize_requested);
     connect(viewport_, &ViewportWidget::selected_rectangle_rotation_requested, this, &MainWindow::handle_selected_rotation_requested);
+    connect(viewport_, &ViewportWidget::selected_rectangle_shape_requested, this, &MainWindow::handle_selected_shape_requested);
     connect(viewport_, &ViewportWidget::selected_rectangle_corner_radius_requested, this,
         &MainWindow::handle_selected_corner_radius_requested);
+    connect(viewport_, &ViewportWidget::selected_rectangle_vertex_corner_radius_requested, this,
+        &MainWindow::handle_selected_vertex_corner_radius_requested);
     connect(viewport_, &ViewportWidget::scene_context_menu_requested, this, &MainWindow::show_scene_context_menu);
 
     layers_dock_ = new QDockWidget(this);
@@ -230,6 +234,7 @@ void MainWindow::create_layout()
     layers_content->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
     layers_label_ = new QLabel(layers_content);
     layers_label_->setWordWrap(true);
+    layers_label_->hide();
     layers_list_ = new QListWidget(layers_content);
     layers_list_->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Expanding);
     layers_list_->setDragDropMode(QAbstractItemView::InternalMove);
@@ -283,6 +288,12 @@ void MainWindow::create_layout()
         return box;
     };
 
+    auto create_row_label = [inspector_content]() {
+        auto* label = new QLabel(inspector_content);
+        label->setWordWrap(false);
+        return label;
+    };
+
     x_spinbox_ = create_spinbox();
     y_spinbox_ = create_spinbox();
     width_spinbox_ = create_spinbox();
@@ -294,17 +305,34 @@ void MainWindow::create_layout()
     corner_radius_spinbox_ = create_spinbox();
     corner_radius_spinbox_->setMinimum(0.0);
     color_button_ = new QPushButton(inspector_content);
+    stroke_color_button_ = new QPushButton(inspector_content);
+    stroke_width_spinbox_ = create_spinbox();
+    stroke_width_spinbox_->setRange(0.0, 1000.0);
+    stroke_width_spinbox_->setMinimum(0.0);
     opacity_slider_ = new QSlider(Qt::Horizontal, inspector_content);
     opacity_slider_->setRange(0, 255);
 
-    form_layout->addRow(QStringLiteral("X"), x_spinbox_);
-    form_layout->addRow(QStringLiteral("Y"), y_spinbox_);
-    form_layout->addRow(QStringLiteral("Width"), width_spinbox_);
-    form_layout->addRow(QStringLiteral("Height"), height_spinbox_);
-    form_layout->addRow(QStringLiteral("Rotation"), rotation_spinbox_);
-    form_layout->addRow(QStringLiteral("Corner radius"), corner_radius_spinbox_);
-    form_layout->addRow(QStringLiteral("Fill color"), color_button_);
-    form_layout->addRow(QStringLiteral("Opacity"), opacity_slider_);
+    x_label_ = create_row_label();
+    y_label_ = create_row_label();
+    width_label_ = create_row_label();
+    height_label_ = create_row_label();
+    rotation_label_ = create_row_label();
+    corner_radius_label_ = create_row_label();
+    fill_color_label_ = create_row_label();
+    stroke_color_label_ = create_row_label();
+    stroke_width_label_ = create_row_label();
+    opacity_label_ = create_row_label();
+
+    form_layout->addRow(x_label_, x_spinbox_);
+    form_layout->addRow(y_label_, y_spinbox_);
+    form_layout->addRow(width_label_, width_spinbox_);
+    form_layout->addRow(height_label_, height_spinbox_);
+    form_layout->addRow(rotation_label_, rotation_spinbox_);
+    form_layout->addRow(corner_radius_label_, corner_radius_spinbox_);
+    form_layout->addRow(fill_color_label_, color_button_);
+    form_layout->addRow(stroke_color_label_, stroke_color_button_);
+    form_layout->addRow(stroke_width_label_, stroke_width_spinbox_);
+    form_layout->addRow(opacity_label_, opacity_slider_);
     inspector_layout->addWidget(inspector_label_);
     inspector_layout->addWidget(geometry_label_);
     inspector_layout->addLayout(form_layout);
@@ -312,6 +340,8 @@ void MainWindow::create_layout()
     inspector_dock_->setWidget(inspector_content);
     inspector_dock_->setFeatures(QDockWidget::DockWidgetMovable | QDockWidget::DockWidgetFloatable);
     connect(color_button_, &QPushButton::clicked, this, &MainWindow::handle_selected_color_change);
+    connect(stroke_color_button_, &QPushButton::clicked, this, &MainWindow::handle_selected_stroke_color_change);
+    connect(stroke_width_spinbox_, &QDoubleSpinBox::valueChanged, this, &MainWindow::handle_selected_stroke_width_change);
     connect(opacity_slider_, &QSlider::valueChanged, this, &MainWindow::handle_selected_opacity_change);
     connect(x_spinbox_, &QDoubleSpinBox::valueChanged, this, &MainWindow::handle_selected_geometry_change);
     connect(y_spinbox_, &QDoubleSpinBox::valueChanged, this, &MainWindow::handle_selected_geometry_change);
@@ -448,10 +478,84 @@ void MainWindow::handle_selected_rotation_requested(double rotation_degrees)
     }
 }
 
+void MainWindow::handle_selected_shape_requested(
+    const std::array<polivex::core::Point2D, 4>& vertices, const polivex::core::Point2D& pivot,
+    double rotation_degrees, bool has_custom_vertices)
+{
+    if (session_.set_selected_rectangle_shape(vertices, pivot, rotation_degrees, has_custom_vertices)) {
+        refresh_window_state();
+        refresh_inspector();
+        refresh_viewport();
+    }
+}
+
 void MainWindow::handle_selected_corner_radius_requested(double radius)
 {
     if (session_.set_selected_rectangle_corner_radius(radius)) {
         refresh_window_state();
+        refresh_inspector();
+        refresh_viewport();
+    }
+}
+
+void MainWindow::handle_selected_vertex_corner_radius_requested(int vertex_index, double radius)
+{
+    if (vertex_index < 0) {
+        return;
+    }
+
+    if (session_.set_selected_rectangle_corner_radius(static_cast<std::size_t>(vertex_index), radius)) {
+        refresh_window_state();
+        refresh_inspector();
+        refresh_viewport();
+    }
+}
+
+void MainWindow::handle_selected_stroke_color_change()
+{
+    const auto entity_id = session_.selected_entity_id();
+    if (!entity_id.has_value()) {
+        return;
+    }
+
+    const auto* rectangle = session_.active_document().rectangle(*entity_id);
+    if (rectangle == nullptr || !rectangle->vector_style.has_value()) {
+        return;
+    }
+
+    const auto style = *rectangle->vector_style;
+    const auto color = QColorDialog::getColor(
+        QColor(style.stroke_red, style.stroke_green, style.stroke_blue, style.stroke_opacity), this);
+    if (!color.isValid()) {
+        return;
+    }
+
+    auto updated_style = style;
+    updated_style.stroke_red = static_cast<std::uint8_t>(color.red());
+    updated_style.stroke_green = static_cast<std::uint8_t>(color.green());
+    updated_style.stroke_blue = static_cast<std::uint8_t>(color.blue());
+    updated_style.stroke_opacity = static_cast<std::uint8_t>(color.alpha());
+    if (session_.set_selected_vector_style(updated_style)) {
+        refresh_inspector();
+        refresh_viewport();
+    }
+}
+
+void MainWindow::handle_selected_stroke_width_change(double width)
+{
+    const auto entity_id = session_.selected_entity_id();
+    if (!entity_id.has_value()) {
+        return;
+    }
+
+    const auto* rectangle = session_.active_document().rectangle(*entity_id);
+    if (rectangle == nullptr || !rectangle->vector_style.has_value()) {
+        return;
+    }
+
+    auto style = *rectangle->vector_style;
+    style.stroke_width = std::max(0.0, width);
+    if (session_.set_selected_vector_style(style)) {
         refresh_inspector();
         refresh_viewport();
     }
@@ -766,6 +870,7 @@ void MainWindow::retranslate_ui()
     language_menu_->setTitle(QCoreApplication::translate("polivex::ui::MainWindow", "Language"));
     workspace_menu_->setTitle(QCoreApplication::translate("polivex::ui::MainWindow", "Workspace"));
     camera_menu_->setTitle(QCoreApplication::translate("polivex::ui::MainWindow", "Camera"));
+    layer_menu_->setTitle(QCoreApplication::translate("polivex::ui::MainWindow", "Layers"));
     english_action_->setText(QCoreApplication::translate("polivex::ui::MainWindow", "English"));
     russian_action_->setText(QCoreApplication::translate("polivex::ui::MainWindow", "Russian"));
     vector_workspace_action_->setText(QCoreApplication::translate("polivex::ui::MainWindow", "Vector"));
@@ -799,11 +904,16 @@ void MainWindow::retranslate_ui()
     file_toolbar_->setWindowTitle(QCoreApplication::translate("polivex::ui::MainWindow", "File"));
     layers_dock_->setWindowTitle(QCoreApplication::translate("polivex::ui::MainWindow", "Layers"));
     inspector_dock_->setWindowTitle(QCoreApplication::translate("polivex::ui::MainWindow", "Properties"));
-    if (layers_label_ != nullptr) {
-        layers_label_->setText(
-            QCoreApplication::translate("polivex::ui::MainWindow",
-                "Drag layers to reorder them. Double-click to rename. Click the selected object again to switch handles."));
-    }
+    x_label_->setText(QCoreApplication::translate("polivex::ui::MainWindow", "X"));
+    y_label_->setText(QCoreApplication::translate("polivex::ui::MainWindow", "Y"));
+    width_label_->setText(QCoreApplication::translate("polivex::ui::MainWindow", "Width"));
+    height_label_->setText(QCoreApplication::translate("polivex::ui::MainWindow", "Height"));
+    rotation_label_->setText(QCoreApplication::translate("polivex::ui::MainWindow", "Rotation"));
+    corner_radius_label_->setText(QCoreApplication::translate("polivex::ui::MainWindow", "Corner radius"));
+    fill_color_label_->setText(QCoreApplication::translate("polivex::ui::MainWindow", "Fill color"));
+    stroke_color_label_->setText(QCoreApplication::translate("polivex::ui::MainWindow", "Stroke color"));
+    stroke_width_label_->setText(QCoreApplication::translate("polivex::ui::MainWindow", "Stroke width"));
+    opacity_label_->setText(QCoreApplication::translate("polivex::ui::MainWindow", "Opacity"));
     refresh_window_state();
     refresh_viewport();
     refresh_inspector();
@@ -884,8 +994,14 @@ void MainWindow::refresh_inspector()
             const QSignalBlocker blocker(opacity_slider_);
             opacity_slider_->setValue(0);
         }
+        {
+            const QSignalBlocker blocker(stroke_width_spinbox_);
+            stroke_width_spinbox_->setValue(0.0);
+        }
         color_button_->setText(QCoreApplication::translate("polivex::ui::MainWindow", "Fill color"));
         color_button_->setStyleSheet(QString());
+        stroke_color_button_->setText(QCoreApplication::translate("polivex::ui::MainWindow", "Stroke color"));
+        stroke_color_button_->setStyleSheet(QString());
         const auto disable = [](auto* widget) { widget->setEnabled(false); };
         disable(x_spinbox_);
         disable(y_spinbox_);
@@ -894,6 +1010,8 @@ void MainWindow::refresh_inspector()
         disable(rotation_spinbox_);
         disable(corner_radius_spinbox_);
         disable(color_button_);
+        disable(stroke_color_button_);
+        disable(stroke_width_spinbox_);
         disable(opacity_slider_);
         return;
     }
@@ -934,6 +1052,10 @@ void MainWindow::refresh_inspector()
         const QSignalBlocker blocker(opacity_slider_);
         opacity_slider_->setValue(style.opacity);
     }
+    {
+        const QSignalBlocker blocker(stroke_width_spinbox_);
+        stroke_width_spinbox_->setValue(style.stroke_width);
+    }
 
     color_button_->setText(rectangle->kind == polivex::core::RectangleKind::Vector
             ? QCoreApplication::translate("polivex::ui::MainWindow", "Fill color")
@@ -941,14 +1063,20 @@ void MainWindow::refresh_inspector()
     color_button_->setStyleSheet(rectangle->kind == polivex::core::RectangleKind::Vector
             ? QString("background-color: rgb(%1, %2, %3);").arg(style.red).arg(style.green).arg(style.blue)
             : QString());
+    stroke_color_button_->setText(QCoreApplication::translate("polivex::ui::MainWindow", "Stroke color"));
+    stroke_color_button_->setStyleSheet(rectangle->kind == polivex::core::RectangleKind::Vector
+            ? QString("background-color: rgb(%1, %2, %3);").arg(style.stroke_red).arg(style.stroke_green).arg(style.stroke_blue)
+            : QString());
 
     x_spinbox_->setEnabled(true);
     y_spinbox_->setEnabled(true);
     width_spinbox_->setEnabled(true);
     height_spinbox_->setEnabled(true);
     rotation_spinbox_->setEnabled(true);
-    corner_radius_spinbox_->setEnabled(true);
+    corner_radius_spinbox_->setEnabled(!rectangle->has_custom_vertices);
     color_button_->setEnabled(rectangle->kind == polivex::core::RectangleKind::Vector);
+    stroke_color_button_->setEnabled(rectangle->kind == polivex::core::RectangleKind::Vector);
+    stroke_width_spinbox_->setEnabled(rectangle->kind == polivex::core::RectangleKind::Vector);
     opacity_slider_->setEnabled(rectangle->kind == polivex::core::RectangleKind::Vector);
 }
 

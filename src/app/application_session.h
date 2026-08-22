@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <optional>
 
 #include "core/project_document.h"
@@ -33,7 +34,11 @@ public:
     [[nodiscard]] bool move_selected_rectangle(const polivex::core::Point2D& delta) noexcept;
     [[nodiscard]] bool resize_selected_rectangle(polivex::core::Rectangle2D bounds) noexcept;
     [[nodiscard]] bool set_selected_rectangle_rotation(double rotation_degrees) noexcept;
+    [[nodiscard]] bool set_selected_rectangle_shape(
+        const std::array<polivex::core::Point2D, 4>& vertices, polivex::core::Point2D pivot,
+        double rotation_degrees, bool has_custom_vertices) noexcept;
     [[nodiscard]] bool set_selected_rectangle_corner_radius(double radius) noexcept;
+    [[nodiscard]] bool set_selected_rectangle_corner_radius(std::size_t corner_index, double radius) noexcept;
     [[nodiscard]] bool bring_selected_rectangle_to_front() noexcept;
     [[nodiscard]] bool send_selected_rectangle_to_back() noexcept;
     [[nodiscard]] bool move_selected_rectangle_up() noexcept;
