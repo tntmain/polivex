@@ -8,6 +8,7 @@
 #include <QAction>
 #include <QActionGroup>
 #include <QAbstractItemView>
+#include <QAbstractItemModel>
 #include <QCoreApplication>
 #include <QColorDialog>
 #include <QDockWidget>
@@ -23,6 +24,7 @@
 #include <QListWidgetItem>
 #include <QSignalBlocker>
 #include <QPushButton>
+#include <QSizePolicy>
 #include <QSlider>
 #include <QStatusBar>
 #include <QToolBar>
@@ -216,49 +218,41 @@ void MainWindow::create_layout()
     connect(viewport_, &ViewportWidget::selected_rectangle_rotation_requested, this, &MainWindow::handle_selected_rotation_requested);
     connect(viewport_, &ViewportWidget::selected_rectangle_corner_radius_requested, this,
         &MainWindow::handle_selected_corner_radius_requested);
-
-    browser_dock_ = new QDockWidget(this);
-    browser_dock_->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea);
-    document_label_ = new QLabel(browser_dock_);
-    document_label_->setMargin(12);
-    browser_dock_->setWidget(document_label_);
-    addDockWidget(Qt::LeftDockWidgetArea, browser_dock_);
+    connect(viewport_, &ViewportWidget::scene_context_menu_requested, this, &MainWindow::show_scene_context_menu);
 
     layers_dock_ = new QDockWidget(this);
     layers_dock_->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea);
+    layers_dock_->setFeatures(QDockWidget::DockWidgetMovable | QDockWidget::DockWidgetFloatable);
     auto* layers_content = new QWidget(layers_dock_);
     auto* layers_layout = new QVBoxLayout(layers_content);
     layers_layout->setContentsMargins(12, 12, 12, 12);
     layers_layout->setSpacing(8);
+    layers_content->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
     layers_label_ = new QLabel(layers_content);
     layers_label_->setWordWrap(true);
     layers_list_ = new QListWidget(layers_content);
+    layers_list_->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Expanding);
+    layers_list_->setDragDropMode(QAbstractItemView::InternalMove);
+    layers_list_->setDefaultDropAction(Qt::MoveAction);
+    layers_list_->setDragEnabled(true);
+    layers_list_->setAcceptDrops(true);
+    layers_list_->setDropIndicatorShown(true);
     layers_list_->setSelectionMode(QAbstractItemView::ExtendedSelection);
     layers_list_->setSelectionBehavior(QAbstractItemView::SelectRows);
     layers_list_->setEditTriggers(QAbstractItemView::DoubleClicked | QAbstractItemView::EditKeyPressed);
     layers_list_->setAlternatingRowColors(true);
-    auto* layer_buttons = new QHBoxLayout();
-    layer_top_button_ = new QPushButton(layers_content);
-    layer_up_button_ = new QPushButton(layers_content);
-    layer_down_button_ = new QPushButton(layers_content);
-    layer_bottom_button_ = new QPushButton(layers_content);
-    layer_buttons->addWidget(layer_top_button_);
-    layer_buttons->addWidget(layer_up_button_);
-    layer_buttons->addWidget(layer_down_button_);
-    layer_buttons->addWidget(layer_bottom_button_);
     layers_layout->addWidget(layers_label_);
     layers_layout->addWidget(layers_list_);
-    layers_layout->addLayout(layer_buttons);
     layers_dock_->setWidget(layers_content);
-    layers_dock_->setMinimumWidth(280);
+    layers_content->setMinimumWidth(0);
+    layers_list_->setMinimumWidth(0);
+    layers_dock_->setMinimumWidth(140);
     connect(layers_list_, &QListWidget::itemChanged, this, &MainWindow::handle_layers_item_changed);
     connect(layers_list_, &QListWidget::itemSelectionChanged, this, &MainWindow::handle_layers_selection_changed);
-    connect(layer_top_button_, &QPushButton::clicked, this, &MainWindow::handle_selected_bring_to_front);
-    connect(layer_up_button_, &QPushButton::clicked, this, &MainWindow::handle_selected_move_up);
-    connect(layer_down_button_, &QPushButton::clicked, this, &MainWindow::handle_selected_move_down);
-    connect(layer_bottom_button_, &QPushButton::clicked, this, &MainWindow::handle_selected_send_to_back);
+    connect(layers_list_->model(), &QAbstractItemModel::rowsMoved, this, [this](const QModelIndex&, int, int, const QModelIndex&, int) {
+        handle_layers_order_changed();
+    });
     addDockWidget(Qt::LeftDockWidgetArea, layers_dock_);
-    splitDockWidget(browser_dock_, layers_dock_, Qt::Vertical);
 
     inspector_dock_ = new QDockWidget(this);
     inspector_dock_->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea);
@@ -266,8 +260,9 @@ void MainWindow::create_layout()
     auto* inspector_layout = new QVBoxLayout(inspector_content);
     inspector_layout->setContentsMargins(12, 12, 12, 12);
     inspector_layout->setSpacing(8);
-    inspector_content->setMinimumWidth(340);
-    inspector_dock_->setMinimumWidth(360);
+    inspector_content->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
+    inspector_content->setMinimumWidth(0);
+    inspector_dock_->setMinimumWidth(180);
 
     inspector_label_ = new QLabel(inspector_content);
     inspector_label_->setWordWrap(true);
@@ -325,7 +320,6 @@ void MainWindow::create_layout()
     connect(rotation_spinbox_, &QDoubleSpinBox::valueChanged, this, &MainWindow::handle_selected_rotation_requested);
     connect(corner_radius_spinbox_, &QDoubleSpinBox::valueChanged, this, &MainWindow::handle_selected_corner_radius_requested);
     addDockWidget(Qt::RightDockWidgetArea, inspector_dock_);
-    splitDockWidget(layers_dock_, inspector_dock_, Qt::Vertical);
 
     refresh_layers();
 }
@@ -610,6 +604,45 @@ void MainWindow::handle_layers_selection_changed()
     refresh_viewport();
 }
 
+void MainWindow::handle_layers_order_changed()
+{
+    if (layers_list_ == nullptr) {
+        return;
+    }
+
+    std::vector<polivex::core::EntityId> ordered_ids;
+    ordered_ids.reserve(static_cast<std::size_t>(layers_list_->count()));
+    for (int row = 0; row < layers_list_->count(); ++row) {
+        const auto* item = layers_list_->item(row);
+        if (item == nullptr) {
+            return;
+        }
+        ordered_ids.push_back(static_cast<polivex::core::EntityId>(item->data(Qt::UserRole).toULongLong()));
+    }
+
+    std::reverse(ordered_ids.begin(), ordered_ids.end());
+    if (session_.active_document().reorder_rectangles(ordered_ids)) {
+        refresh_window_state();
+        refresh_viewport();
+        refresh_layers();
+    }
+}
+
+void MainWindow::show_scene_context_menu(const QPoint& global_position)
+{
+    if (session_.selected_entity_id().has_value() == false) {
+        return;
+    }
+
+    QMenu menu(this);
+    menu.addAction(bring_to_front_action_);
+    menu.addAction(send_to_back_action_);
+    menu.addSeparator();
+    menu.addAction(move_up_action_);
+    menu.addAction(move_down_action_);
+    menu.exec(global_position);
+}
+
 void MainWindow::handle_grid_visibility_toggled(bool visible)
 {
     auto& state = session_.viewport_state();
@@ -669,8 +702,8 @@ void MainWindow::refresh_window_state()
     });
 
     setWindowTitle(QCoreApplication::translate("polivex::ui::MainWindow", "Polivex - %1").arg(document_name));
-    document_label_->setText(
-        QCoreApplication::translate("polivex::ui::MainWindow", "Active document: %1\nModified: %2\n\nVector rectangles: %3\nSketch rectangles: %4")
+    statusBar()->showMessage(
+        QCoreApplication::translate("polivex::ui::MainWindow", "Active document: %1 | Modified: %2 | Vector: %3 | Sketch: %4")
             .arg(document_name,
                 document.is_dirty()
                     ? QCoreApplication::translate("polivex::ui::MainWindow", "yes")
@@ -764,18 +797,13 @@ void MainWindow::retranslate_ui()
     distribute_vertically_action_->setText(
         QCoreApplication::translate("polivex::ui::MainWindow", "Distribute Vertically"));
     file_toolbar_->setWindowTitle(QCoreApplication::translate("polivex::ui::MainWindow", "File"));
-    browser_dock_->setWindowTitle(QCoreApplication::translate("polivex::ui::MainWindow", "Structure"));
     layers_dock_->setWindowTitle(QCoreApplication::translate("polivex::ui::MainWindow", "Layers"));
-    inspector_dock_->setWindowTitle(QCoreApplication::translate("polivex::ui::MainWindow", "Inspector"));
+    inspector_dock_->setWindowTitle(QCoreApplication::translate("polivex::ui::MainWindow", "Properties"));
     if (layers_label_ != nullptr) {
-        layers_label_->setText(QCoreApplication::translate(
-            "polivex::ui::MainWindow", "Double-click a layer to rename it. Use the buttons to change order."));
+        layers_label_->setText(
+            QCoreApplication::translate("polivex::ui::MainWindow",
+                "Drag layers to reorder them. Double-click to rename. Click the selected object again to switch handles."));
     }
-    layer_top_button_->setText(QCoreApplication::translate("polivex::ui::MainWindow", "Top"));
-    layer_up_button_->setText(QCoreApplication::translate("polivex::ui::MainWindow", "Up"));
-    layer_down_button_->setText(QCoreApplication::translate("polivex::ui::MainWindow", "Down"));
-    layer_bottom_button_->setText(QCoreApplication::translate("polivex::ui::MainWindow", "Bottom"));
-    statusBar()->showMessage(QCoreApplication::translate("polivex::ui::MainWindow", "Ready"));
     refresh_window_state();
     refresh_viewport();
     refresh_inspector();
@@ -805,10 +833,6 @@ void MainWindow::refresh_viewport()
     send_to_back_action_->setEnabled(has_selection);
     move_up_action_->setEnabled(has_selection);
     move_down_action_->setEnabled(has_selection);
-    layer_top_button_->setEnabled(has_selection);
-    layer_up_button_->setEnabled(has_selection);
-    layer_down_button_->setEnabled(has_selection);
-    layer_bottom_button_->setEnabled(has_selection);
     const auto multi_selection = session_.selected_entity_ids().size() > 1;
     align_left_action_->setEnabled(multi_selection);
     align_right_action_->setEnabled(multi_selection);

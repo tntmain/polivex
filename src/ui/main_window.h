@@ -23,6 +23,7 @@ class QActionGroup;
 class QPushButton;
 class QSlider;
 class QDoubleSpinBox;
+class QPoint;
 
 namespace polivex::ui {
 class ViewportWidget;
@@ -65,7 +66,9 @@ private slots:
     void handle_selected_distribute_horizontally();
     void handle_selected_distribute_vertically();
     void handle_layers_item_changed(QListWidgetItem* item);
+    void handle_layers_order_changed();
     void handle_layers_selection_changed();
+    void show_scene_context_menu(const QPoint& global_position);
     void handle_grid_visibility_toggled(bool visible);
     void handle_grid_spacing_change();
     void handle_background_transparency_toggled(bool transparent);
@@ -84,15 +87,10 @@ private:
     [[nodiscard]] QString display_document_name() const;
 
     polivex::app::ApplicationSession& session_;
-    QLabel* document_label_ = nullptr;
     QLabel* layers_label_ = nullptr;
     QLabel* inspector_label_ = nullptr;
     QLabel* geometry_label_ = nullptr;
     QListWidget* layers_list_ = nullptr;
-    QPushButton* layer_top_button_ = nullptr;
-    QPushButton* layer_up_button_ = nullptr;
-    QPushButton* layer_down_button_ = nullptr;
-    QPushButton* layer_bottom_button_ = nullptr;
     QDoubleSpinBox* x_spinbox_ = nullptr;
     QDoubleSpinBox* y_spinbox_ = nullptr;
     QDoubleSpinBox* width_spinbox_ = nullptr;
@@ -136,7 +134,6 @@ private:
     QAction* align_vertical_middle_action_ = nullptr;
     QAction* distribute_horizontally_action_ = nullptr;
     QAction* distribute_vertically_action_ = nullptr;
-    QDockWidget* browser_dock_ = nullptr;
     QDockWidget* layers_dock_ = nullptr;
     QDockWidget* inspector_dock_ = nullptr;
     ViewportWidget* viewport_ = nullptr;

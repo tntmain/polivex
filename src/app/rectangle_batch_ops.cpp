@@ -1,9 +1,6 @@
 #include "app/rectangle_batch_ops.h"
 
 #include <algorithm>
-#include <array>
-#include <cmath>
-#include <numbers>
 #include <vector>
 
 namespace polivex::app {
@@ -16,47 +13,6 @@ struct RectangleSnapshot {
     polivex::core::Rectangle2D frame_bounds;
 };
 
-enum class Axis {
-    Horizontal,
-    Vertical,
-};
-
-polivex::core::Rectangle2D frame_bounds_for(const polivex::core::RectangleEntity& rectangle)
-{
-    const auto& bounds = rectangle.bounds;
-    const auto center_x = (bounds.minimum.x + bounds.maximum.x) / 2.0;
-    const auto center_y = (bounds.minimum.y + bounds.maximum.y) / 2.0;
-    const auto radians = rectangle.rotation_degrees * std::numbers::pi / 180.0;
-    const auto cosine = std::cos(radians);
-    const auto sine = std::sin(radians);
-
-    const auto rotate = [&](double x, double y) {
-        const auto translated_x = x - center_x;
-        const auto translated_y = y - center_y;
-        return polivex::core::Point2D {
-            center_x + translated_x * cosine - translated_y * sine,
-            center_y + translated_x * sine + translated_y * cosine,
-        };
-    };
-
-    const std::array corners {
-        rotate(bounds.minimum.x, bounds.minimum.y),
-        rotate(bounds.minimum.x, bounds.maximum.y),
-        rotate(bounds.maximum.x, bounds.minimum.y),
-        rotate(bounds.maximum.x, bounds.maximum.y),
-    };
-
-    auto frame = polivex::core::Rectangle2D {corners.front(), corners.front()};
-    for (const auto& corner : corners) {
-        frame.minimum.x = std::min(frame.minimum.x, corner.x);
-        frame.minimum.y = std::min(frame.minimum.y, corner.y);
-        frame.maximum.x = std::max(frame.maximum.x, corner.x);
-        frame.maximum.y = std::max(frame.maximum.y, corner.y);
-    }
-
-    return frame;
-}
-
 std::vector<RectangleSnapshot> collect_rectangles(
     polivex::core::ProjectDocument& document, std::span<const polivex::core::EntityId> selection)
 {
@@ -67,11 +23,16 @@ std::vector<RectangleSnapshot> collect_rectangles(
         if (rectangle == nullptr) {
             return {};
         }
-        rectangles.push_back({id, rectangle->bounds, frame_bounds_for(*rectangle)});
+        rectangles.push_back({id, rectangle->bounds, polivex::core::rotated_frame_bounds(*rectangle)});
     }
 
     return rectangles;
 }
+
+enum class Axis {
+    Horizontal,
+    Vertical,
+};
 
 bool align_by_edge(polivex::core::ProjectDocument& document, std::span<const polivex::core::EntityId> selection,
     Axis axis, bool use_minimum)
@@ -88,16 +49,20 @@ bool align_by_edge(polivex::core::ProjectDocument& document, std::span<const pol
         return use_minimum ? rectangle.frame_bounds.minimum.y : rectangle.frame_bounds.maximum.y;
     };
 
-    const auto iterator = use_minimum
-        ? std::min_element(rectangles.begin(), rectangles.end(), [&](const auto& first, const auto& second) {
-              return edge(first) < edge(second);
-          })
-        : std::max_element(rectangles.begin(), rectangles.end(), [&](const auto& first, const auto& second) {
-              return edge(first) < edge(second);
-          });
-    const auto target = edge(*iterator);
+    const auto anchor = std::find_if(rectangles.begin(), rectangles.end(), [&](const RectangleSnapshot& rectangle) {
+        return rectangle.id == selection.front();
+    });
+    if (anchor == rectangles.end()) {
+        return false;
+    }
+
+    const auto target = edge(*anchor);
 
     for (const auto& rectangle : rectangles) {
+        if (rectangle.id == anchor->id) {
+            continue;
+        }
+
         const auto current = edge(rectangle);
         const auto delta = target - current;
         if (axis == Axis::Horizontal) {
@@ -117,27 +82,22 @@ bool align_by_center(polivex::core::ProjectDocument& document, std::span<const p
     if (rectangles.size() < 2) {
         return false;
     }
-
-    const auto first_edge = [axis](const RectangleSnapshot& rectangle) {
-        return axis == Axis::Horizontal ? rectangle.frame_bounds.minimum.x : rectangle.frame_bounds.minimum.y;
-    };
-    const auto second_edge = [axis](const RectangleSnapshot& rectangle) {
-        return axis == Axis::Horizontal ? rectangle.frame_bounds.maximum.x : rectangle.frame_bounds.maximum.y;
-    };
-
-    const auto minimum = std::min_element(rectangles.begin(), rectangles.end(), [&](const auto& first, const auto& second) {
-        return first_edge(first) < first_edge(second);
+    const auto anchor = std::find_if(rectangles.begin(), rectangles.end(), [&](const RectangleSnapshot& rectangle) {
+        return rectangle.id == selection.front();
     });
-    const auto maximum = std::max_element(rectangles.begin(), rectangles.end(), [&](const auto& first, const auto& second) {
-        return second_edge(first) < second_edge(second);
-    });
+    if (anchor == rectangles.end()) {
+        return false;
+    }
 
-    const auto target = (axis == Axis::Horizontal
-            ? (minimum->frame_bounds.minimum.x + maximum->frame_bounds.maximum.x)
-            : (minimum->frame_bounds.minimum.y + maximum->frame_bounds.maximum.y))
-        / 2.0;
+    const auto target = axis == Axis::Horizontal
+        ? (anchor->frame_bounds.minimum.x + anchor->frame_bounds.maximum.x) / 2.0
+        : (anchor->frame_bounds.minimum.y + anchor->frame_bounds.maximum.y) / 2.0;
 
     for (const auto& rectangle : rectangles) {
+        if (rectangle.id == anchor->id) {
+            continue;
+        }
+
         const auto center = axis == Axis::Horizontal
             ? (rectangle.frame_bounds.minimum.x + rectangle.frame_bounds.maximum.x) / 2.0
             : (rectangle.frame_bounds.minimum.y + rectangle.frame_bounds.maximum.y) / 2.0;

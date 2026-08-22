@@ -5,6 +5,7 @@
 #include <vector>
 
 #include <QColor>
+#include <QPoint>
 #include <QWidget>
 
 #include "app/workspace.h"
@@ -14,7 +15,9 @@
 class QMouseEvent;
 class QPaintEvent;
 class QPainter;
+class QContextMenuEvent;
 class QWheelEvent;
+class QString;
 
 namespace polivex::ui {
 
@@ -49,6 +52,7 @@ signals:
     void selected_rectangle_send_to_back_requested();
     void selected_rectangle_move_up_requested();
     void selected_rectangle_move_down_requested();
+    void scene_context_menu_requested(const QPoint& global_position);
 
 public:
     enum class InteractionMode {
@@ -57,6 +61,11 @@ public:
         Resize,
         Rotate,
         CornerRadius,
+    };
+
+    enum class SelectionHandleMode {
+        Scale,
+        Transform,
     };
 
     enum class ResizeHandle {
@@ -83,6 +92,7 @@ protected:
     void mouseMoveEvent(QMouseEvent* event) override;
     void mousePressEvent(QMouseEvent* event) override;
     void mouseReleaseEvent(QMouseEvent* event) override;
+    void contextMenuEvent(QContextMenuEvent* event) override;
     void paintEvent(QPaintEvent* event) override;
     void wheelEvent(QWheelEvent* event) override;
 
@@ -105,23 +115,29 @@ private:
     void draw_navigation_cube(QPainter& painter) const;
     void draw_rectangles(QPainter& painter) const;
     void draw_selection_overlay(QPainter& painter) const;
+    void draw_selection_badge(QPainter& painter, const polivex::core::RectangleEntity& rectangle) const;
     void draw_snap_guides(QPainter& painter) const;
     [[nodiscard]] QRect navigation_cube_rect() const;
     [[nodiscard]] std::optional<polivex::core::EntityId> rectangle_at(const QPointF& screen_position) const;
     [[nodiscard]] std::optional<polivex::core::RectangleEntity> selected_rectangle() const;
     [[nodiscard]] bool is_selected(polivex::core::EntityId entity_id) const;
+    [[nodiscard]] QString selection_badge_text(const polivex::core::RectangleEntity& rectangle) const;
 
     polivex::app::ViewportState state_;
     bool is_panning_ = false;
     bool is_creating_rectangle_ = false;
+    bool is_pending_selected_drag_ = false;
+    bool pending_toggle_selection_mode_ = false;
     bool is_moving_selected_rectangle_ = false;
     bool is_resizing_selected_rectangle_ = false;
     bool is_rotating_selected_rectangle_ = false;
     bool is_adjusting_corner_radius_ = false;
     InteractionMode interaction_mode_ = InteractionMode::None;
+    SelectionHandleMode selection_handle_mode_ = SelectionHandleMode::Scale;
     ResizeHandle active_resize_handle_ = ResizeHandle::None;
     CornerRadiusHandle active_corner_radius_handle_ = CornerRadiusHandle::None;
     QPoint last_mouse_position_;
+    QPoint pending_press_position_;
     polivex::core::Point2D rectangle_start_;
     polivex::core::Point2D rectangle_current_;
     polivex::core::Point2D last_move_delta_;

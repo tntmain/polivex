@@ -190,6 +190,37 @@ bool ProjectDocument::move_rectangle_down(EntityId id) noexcept
     return reorder_rectangle(id, static_cast<std::size_t>(std::distance(rectangles_.begin(), iterator)) - 1);
 }
 
+bool ProjectDocument::reorder_rectangles(std::span<const EntityId> ordered_ids) noexcept
+{
+    if (ordered_ids.size() != rectangles_.size()) {
+        return false;
+    }
+
+    std::vector<RectangleEntity> reordered;
+    reordered.reserve(rectangles_.size());
+
+    for (const auto id : ordered_ids) {
+        if (std::find_if(reordered.begin(), reordered.end(), [id](const RectangleEntity& rectangle) {
+                return rectangle.id == id;
+            }) != reordered.end()) {
+            return false;
+        }
+
+        const auto iterator = std::find_if(rectangles_.begin(), rectangles_.end(), [id](const RectangleEntity& rectangle) {
+            return rectangle.id == id;
+        });
+        if (iterator == rectangles_.end()) {
+            return false;
+        }
+
+        reordered.push_back(*iterator);
+    }
+
+    rectangles_ = std::move(reordered);
+    mark_dirty();
+    return true;
+}
+
 RectangleEntity* ProjectDocument::rectangle_mutable(EntityId id) noexcept
 {
     const auto iterator = std::find_if(rectangles_.begin(), rectangles_.end(), [id](const RectangleEntity& rectangle) {

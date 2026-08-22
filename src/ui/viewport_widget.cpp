@@ -8,11 +8,15 @@
 #include <utility>
 
 #include <QLineF>
+#include <QApplication>
+#include <QContextMenuEvent>
+#include <QFontMetrics>
 #include <QMouseEvent>
 #include <QPainter>
 #include <QPainterPath>
 #include <QPolygonF>
 #include <QRectF>
+#include <QString>
 #include <QTransform>
 #include <QWheelEvent>
 
@@ -28,7 +32,6 @@ constexpr double kHandleSizePx = 8.0;
 constexpr double kEdgeResizeGrabPx = 7.0;
 constexpr double kRadiusHandleSizePx = 9.0;
 constexpr double kRadiusHandleInsetPx = 6.0;
-constexpr double kRotateZoneOuterPx = 20.0;
 constexpr double kSnapThresholdPx = 5.0;
 
 enum class AxisTarget {
@@ -298,16 +301,24 @@ void ViewportWidget::set_rectangles(std::span<const polivex::core::RectangleEnti
 
 void ViewportWidget::set_selected_entity_id(std::optional<polivex::core::EntityId> entity_id)
 {
+    const auto previous = selected_entity_ids_;
     selected_entity_ids_.clear();
     if (entity_id.has_value()) {
         selected_entity_ids_.push_back(*entity_id);
+    }
+    if (selected_entity_ids_ != previous) {
+        selection_handle_mode_ = SelectionHandleMode::Scale;
     }
     update();
 }
 
 void ViewportWidget::set_selected_entity_ids(std::span<const polivex::core::EntityId> entity_ids)
 {
+    const auto previous = selected_entity_ids_;
     selected_entity_ids_.assign(entity_ids.begin(), entity_ids.end());
+    if (selected_entity_ids_ != previous) {
+        selection_handle_mode_ = SelectionHandleMode::Scale;
+    }
     update();
 }
 
@@ -345,6 +356,18 @@ void ViewportWidget::mouseMoveEvent(QMouseEvent* event)
         rectangle_current_ = {point.x(), point.y()};
         update();
         return;
+    }
+
+    if (is_pending_selected_drag_) {
+        if ((event->pos() - pending_press_position_).manhattanLength() < QApplication::startDragDistance()) {
+            return;
+        }
+
+        is_pending_selected_drag_ = false;
+        pending_toggle_selection_mode_ = false;
+        is_moving_selected_rectangle_ = true;
+        interaction_mode_ = InteractionMode::Move;
+        setCursor(Qt::SizeAllCursor);
     }
 
     if (is_moving_selected_rectangle_ || is_resizing_selected_rectangle_ || is_rotating_selected_rectangle_
@@ -640,7 +663,7 @@ void ViewportWidget::mouseMoveEvent(QMouseEvent* event)
 
 void ViewportWidget::mousePressEvent(QMouseEvent* event)
 {
-    if (event->button() == Qt::MiddleButton || event->button() == Qt::RightButton) {
+    if (event->button() == Qt::MiddleButton) {
         is_panning_ = true;
         last_mouse_position_ = event->pos();
         setCursor(Qt::ClosedHandCursor);
@@ -655,57 +678,98 @@ void ViewportWidget::mousePressEvent(QMouseEvent* event)
     if (event->button() == Qt::LeftButton && state_.active_tool == polivex::app::ActiveTool::Select) {
         const auto multi_select = event->modifiers().testFlag(Qt::ShiftModifier);
         const auto current_selected = selected_rectangle();
+        const auto is_selected_entity = [this](polivex::core::EntityId entity_id) {
+            return std::find(selected_entity_ids_.begin(), selected_entity_ids_.end(), entity_id) != selected_entity_ids_.end();
+        };
+        const auto hit = rectangle_at(event->position());
+        const auto primary_selected_id = selected_entity_ids_.size() == 1
+            ? std::optional<polivex::core::EntityId>(selected_entity_ids_.front())
+            : std::nullopt;
+        const auto hit_is_primary = hit.has_value() && primary_selected_id.has_value() && *hit == *primary_selected_id;
+        const auto hit_is_selected = hit.has_value() && is_selected_entity(*hit);
+
+        auto begin_pending_move = [&](const polivex::core::RectangleEntity& rectangle, bool allow_toggle) {
+            interaction_press_scene_ = screen_to_scene(event->position());
+            interaction_initial_bounds_ = rectangle.bounds;
+            interaction_initial_rotation_ = rectangle.rotation_degrees;
+            interaction_initial_corner_radius_ = rectangle.corner_radius;
+            last_move_delta_ = {0.0, 0.0};
+            pending_press_position_ = event->pos();
+            is_pending_selected_drag_ = true;
+            pending_toggle_selection_mode_ = allow_toggle;
+        };
+
+        auto begin_interaction = [&](const SelectionHit& selection_hit, const polivex::core::RectangleEntity& rectangle) {
+            interaction_mode_ = selection_hit.mode;
+            interaction_press_scene_ = screen_to_scene(event->position());
+            interaction_initial_bounds_ = rectangle.bounds;
+            interaction_initial_rotation_ = rectangle.rotation_degrees;
+            interaction_initial_corner_radius_ = rectangle.corner_radius;
+            last_move_delta_ = {0.0, 0.0};
+
+            switch (selection_hit.mode) {
+            case InteractionMode::Move:
+                begin_pending_move(rectangle, hit_is_primary);
+                return;
+            case InteractionMode::Resize:
+                is_resizing_selected_rectangle_ = true;
+                active_resize_handle_ = selection_hit.resize_handle;
+                break;
+            case InteractionMode::Rotate: {
+                is_rotating_selected_rectangle_ = true;
+                const auto center = to_point(polivex::core::rectangle_center(interaction_initial_bounds_));
+                interaction_initial_mouse_angle_ = std::atan2(interaction_press_scene_.y() - center.y(),
+                    interaction_press_scene_.x() - center.x());
+                break;
+            }
+            case InteractionMode::CornerRadius:
+                is_adjusting_corner_radius_ = true;
+                active_corner_radius_handle_ = selection_hit.corner_radius_handle;
+                break;
+            case InteractionMode::None:
+                break;
+            }
+
+            setCursor(selection_hit.cursor);
+        };
+
+        if (!multi_select && selected_entity_ids_.size() > 1 && hit_is_selected) {
+            const auto iterator = std::find(selected_entity_ids_.begin(), selected_entity_ids_.end(), *hit);
+            if (iterator != selected_entity_ids_.begin()) {
+                const auto active_id = *iterator;
+                selected_entity_ids_.erase(iterator);
+                selected_entity_ids_.insert(selected_entity_ids_.begin(), active_id);
+                emit selection_changed(selected_entity_ids_);
+            }
+            emit rectangle_selected(*hit);
+            update();
+            apply_hover_cursor(event->position());
+            return;
+        }
 
         if (!multi_select && current_selected.has_value()) {
             const auto selection_hit = hit_test_selection(*current_selected, event->position());
             if (selection_hit.matched) {
-                interaction_mode_ = selection_hit.mode;
-                interaction_press_scene_ = screen_to_scene(event->position());
-                interaction_initial_bounds_ = current_selected->bounds;
-                interaction_initial_rotation_ = current_selected->rotation_degrees;
-                interaction_initial_corner_radius_ = current_selected->corner_radius;
-                last_move_delta_ = {0.0, 0.0};
-
-                switch (selection_hit.mode) {
-                case InteractionMode::Move:
-                    is_moving_selected_rectangle_ = true;
-                    break;
-                case InteractionMode::Resize:
-                    is_resizing_selected_rectangle_ = true;
-                    active_resize_handle_ = selection_hit.resize_handle;
-                    break;
-                case InteractionMode::Rotate: {
-                    is_rotating_selected_rectangle_ = true;
-                    const auto center = to_point(polivex::core::rectangle_center(interaction_initial_bounds_));
-                    interaction_initial_mouse_angle_ = std::atan2(interaction_press_scene_.y() - center.y(),
-                        interaction_press_scene_.x() - center.x());
-                    break;
-                }
-                case InteractionMode::CornerRadius:
-                    is_adjusting_corner_radius_ = true;
-                    active_corner_radius_handle_ = selection_hit.corner_radius_handle;
-                    break;
-                case InteractionMode::None:
-                    break;
-                }
-
-                setCursor(selection_hit.cursor);
+                begin_interaction(selection_hit, *current_selected);
                 return;
             }
         }
 
-        const auto hit = rectangle_at(event->position());
         if (multi_select && hit.has_value()) {
             const auto iterator = std::find(selected_entity_ids_.begin(), selected_entity_ids_.end(), *hit);
             if (iterator != selected_entity_ids_.end()) {
                 selected_entity_ids_.erase(iterator);
             } else {
-                selected_entity_ids_.push_back(*hit);
+                selected_entity_ids_.insert(selected_entity_ids_.begin(), *hit);
             }
+            selection_handle_mode_ = SelectionHandleMode::Scale;
         } else {
             selected_entity_ids_.clear();
             if (hit.has_value()) {
                 selected_entity_ids_.push_back(*hit);
+            }
+            if (!hit_is_primary) {
+                selection_handle_mode_ = SelectionHandleMode::Scale;
             }
         }
         emit rectangle_selected(hit);
@@ -722,17 +786,7 @@ void ViewportWidget::mousePressEvent(QMouseEvent* event)
             return;
         }
 
-        auto start_move = [&] {
-            interaction_mode_ = InteractionMode::Move;
-            is_moving_selected_rectangle_ = true;
-            interaction_press_scene_ = screen_to_scene(event->position());
-            interaction_initial_bounds_ = selected->bounds;
-            interaction_initial_rotation_ = selected->rotation_degrees;
-            last_move_delta_ = {0.0, 0.0};
-            setCursor(Qt::SizeAllCursor);
-        };
-
-        start_move();
+        begin_pending_move(*selected, false);
         return;
     }
 
@@ -748,9 +802,27 @@ void ViewportWidget::mousePressEvent(QMouseEvent* event)
 
 void ViewportWidget::mouseReleaseEvent(QMouseEvent* event)
 {
-    if ((event->button() == Qt::MiddleButton || event->button() == Qt::RightButton) && is_panning_) {
+    if (event->button() == Qt::MiddleButton && is_panning_) {
         is_panning_ = false;
         unsetCursor();
+    }
+
+    if (event->button() == Qt::LeftButton && is_pending_selected_drag_) {
+        is_pending_selected_drag_ = false;
+        const auto should_toggle_mode = pending_toggle_selection_mode_
+            && (event->pos() - pending_press_position_).manhattanLength() < QApplication::startDragDistance();
+        pending_toggle_selection_mode_ = false;
+        interaction_mode_ = InteractionMode::None;
+        last_move_delta_ = {0.0, 0.0};
+        snap_guides_.clear();
+        if (should_toggle_mode) {
+            selection_handle_mode_ = selection_handle_mode_ == SelectionHandleMode::Scale
+                ? SelectionHandleMode::Transform
+                : SelectionHandleMode::Scale;
+        }
+        apply_hover_cursor(event->position());
+        update();
+        return;
     }
 
     if (event->button() == Qt::LeftButton && is_creating_rectangle_) {
@@ -768,6 +840,7 @@ void ViewportWidget::mouseReleaseEvent(QMouseEvent* event)
     if (event->button() == Qt::LeftButton && (is_moving_selected_rectangle_ || is_resizing_selected_rectangle_
                                                  || is_rotating_selected_rectangle_
                                                  || is_adjusting_corner_radius_)) {
+        pending_toggle_selection_mode_ = false;
         is_moving_selected_rectangle_ = false;
         is_resizing_selected_rectangle_ = false;
         is_rotating_selected_rectangle_ = false;
@@ -780,6 +853,17 @@ void ViewportWidget::mouseReleaseEvent(QMouseEvent* event)
         apply_hover_cursor(event->position());
         update();
     }
+}
+
+void ViewportWidget::contextMenuEvent(QContextMenuEvent* event)
+{
+    if (selected_entity_ids_.empty()) {
+        event->ignore();
+        return;
+    }
+
+    emit scene_context_menu_requested(event->globalPos());
+    event->accept();
 }
 
 void ViewportWidget::paintEvent(QPaintEvent*)
@@ -832,36 +916,74 @@ ViewportWidget::SelectionHit ViewportWidget::hit_test_selection(
     const auto scale = kBasePixelsPerUnit * state_.zoom;
     const auto frame = make_frame_geometry(rectangle);
     const auto to_screen = [this](const QPointF& point) { return scene_to_screen(point); };
-
-    const auto radius_handles = std::array {
-        std::pair {CornerRadiusHandle::TopLeft, to_screen(radius_handle_position(rectangle, CornerRadiusHandle::TopLeft, scale))},
-        std::pair {CornerRadiusHandle::TopRight, to_screen(radius_handle_position(rectangle, CornerRadiusHandle::TopRight, scale))},
-        std::pair {CornerRadiusHandle::BottomRight, to_screen(radius_handle_position(rectangle, CornerRadiusHandle::BottomRight, scale))},
-        std::pair {CornerRadiusHandle::BottomLeft, to_screen(radius_handle_position(rectangle, CornerRadiusHandle::BottomLeft, scale))},
-    };
-    for (const auto& [handle, position] : radius_handles) {
-        if (contains_handle(screen_position, position, kRadiusHandleSizePx)) {
-            hit.mode = InteractionMode::CornerRadius;
-            hit.corner_radius_handle = handle;
-            hit.cursor = Qt::CrossCursor;
-            hit.matched = true;
-            return hit;
-        }
-    }
-
     const auto corner_handles = std::array {
         std::pair {ResizeHandle::TopLeft, to_screen(frame.top_left)},
         std::pair {ResizeHandle::TopRight, to_screen(frame.top_right)},
         std::pair {ResizeHandle::BottomRight, to_screen(frame.bottom_right)},
         std::pair {ResizeHandle::BottomLeft, to_screen(frame.bottom_left)},
     };
-    for (const auto& [handle, position] : corner_handles) {
-        if (contains_handle(screen_position, position, kHandleSizePx)) {
-            hit.mode = InteractionMode::Resize;
-            hit.resize_handle = handle;
-            hit.cursor = cursor_for_resize_handle(handle);
-            hit.matched = true;
-            return hit;
+    const auto edge_handles = std::array {
+        std::pair {ResizeHandle::Top, to_screen(frame.top_center)},
+        std::pair {ResizeHandle::Right, to_screen(frame.right_center)},
+        std::pair {ResizeHandle::Bottom, to_screen(frame.bottom_center)},
+        std::pair {ResizeHandle::Left, to_screen(frame.left_center)},
+    };
+
+    if (selection_handle_mode_ == SelectionHandleMode::Scale) {
+        const auto radius_handles = std::array {
+            std::pair {CornerRadiusHandle::TopLeft, to_screen(radius_handle_position(rectangle, CornerRadiusHandle::TopLeft, scale))},
+            std::pair {CornerRadiusHandle::TopRight, to_screen(radius_handle_position(rectangle, CornerRadiusHandle::TopRight, scale))},
+            std::pair {CornerRadiusHandle::BottomRight, to_screen(radius_handle_position(rectangle, CornerRadiusHandle::BottomRight, scale))},
+            std::pair {CornerRadiusHandle::BottomLeft, to_screen(radius_handle_position(rectangle, CornerRadiusHandle::BottomLeft, scale))},
+        };
+        for (const auto& [handle, position] : radius_handles) {
+            if (contains_handle(screen_position, position, kRadiusHandleSizePx)) {
+                hit.mode = InteractionMode::CornerRadius;
+                hit.corner_radius_handle = handle;
+                hit.cursor = Qt::CrossCursor;
+                hit.matched = true;
+                return hit;
+            }
+        }
+
+        for (const auto& [handle, position] : corner_handles) {
+            if (contains_handle(screen_position, position, kHandleSizePx)) {
+                hit.mode = InteractionMode::Resize;
+                hit.resize_handle = handle;
+                hit.cursor = cursor_for_resize_handle(handle);
+                hit.matched = true;
+                return hit;
+            }
+        }
+
+        for (const auto& [handle, position] : edge_handles) {
+            if (contains_handle(screen_position, position, kHandleSizePx)) {
+                hit.mode = InteractionMode::Resize;
+                hit.resize_handle = handle;
+                hit.cursor = cursor_for_resize_handle(handle);
+                hit.matched = true;
+                return hit;
+            }
+        }
+    } else {
+        for (const auto& [handle, position] : corner_handles) {
+            if (contains_handle(screen_position, position, kHandleSizePx)) {
+                hit.mode = InteractionMode::Rotate;
+                hit.resize_handle = handle;
+                hit.cursor = Qt::CrossCursor;
+                hit.matched = true;
+                return hit;
+            }
+        }
+
+        for (const auto& [handle, position] : edge_handles) {
+            if (contains_handle(screen_position, position, kHandleSizePx)) {
+                hit.mode = InteractionMode::Rotate;
+                hit.resize_handle = handle;
+                hit.cursor = Qt::CrossCursor;
+                hit.matched = true;
+                return hit;
+            }
         }
     }
 
@@ -903,19 +1025,6 @@ ViewportWidget::SelectionHit ViewportWidget::hit_test_selection(
         hit.mode = InteractionMode::Resize;
         hit.resize_handle = ResizeHandle::Bottom;
         hit.cursor = cursor_for_resize_handle(hit.resize_handle);
-        hit.matched = true;
-        return hit;
-    }
-
-    const auto rotate_outer = kRotateZoneOuterPx / std::max(scale, 0.0001);
-    const auto outside_bounds = !polivex::core::rectangle_contains(bounds, {local_point.x(), local_point.y()});
-    const auto within_rotate_band = local_point.x() >= bounds.minimum.x - rotate_outer
-        && local_point.x() <= bounds.maximum.x + rotate_outer
-        && local_point.y() >= bounds.minimum.y - rotate_outer
-        && local_point.y() <= bounds.maximum.y + rotate_outer;
-    if (outside_bounds && within_rotate_band) {
-        hit.mode = InteractionMode::Rotate;
-        hit.cursor = Qt::CrossCursor;
         hit.matched = true;
         return hit;
     }
@@ -1079,10 +1188,15 @@ void ViewportWidget::draw_selection_overlay(QPainter& painter) const
             << to_screen(frame.bottom_left);
     painter.drawPolygon(polygon);
 
-    const auto draw_handle = [&painter](const QPointF& point, double size, const QColor& color) {
+    const auto draw_square_handle = [&painter](const QPointF& point, double size, const QColor& color) {
         painter.setBrush(color);
         painter.setPen(QPen(color.darker(120), 1.0));
         painter.drawRect(QRectF(point.x() - size / 2.0, point.y() - size / 2.0, size, size));
+    };
+    const auto draw_round_handle = [&painter](const QPointF& point, double size, const QColor& color) {
+        painter.setBrush(color);
+        painter.setPen(QPen(color.darker(120), 1.0));
+        painter.drawEllipse(QRectF(point.x() - size / 2.0, point.y() - size / 2.0, size, size));
     };
     const auto draw_radius_handle = [&painter](const QPointF& point, double size, const QColor& color) {
         painter.setBrush(color);
@@ -1091,19 +1205,74 @@ void ViewportWidget::draw_selection_overlay(QPainter& painter) const
     };
 
     const auto handle_color = QColor("#f3bd5b");
+    const auto transform_color = QColor("#67d4ff");
     const auto radius_color = QColor("#ff7ab3");
-    draw_handle(to_screen(frame.top_left), kHandleSizePx, handle_color);
-    draw_handle(to_screen(frame.top_right), kHandleSizePx, handle_color);
-    draw_handle(to_screen(frame.bottom_right), kHandleSizePx, handle_color);
-    draw_handle(to_screen(frame.bottom_left), kHandleSizePx, handle_color);
+    if (selection_handle_mode_ == SelectionHandleMode::Scale) {
+        draw_square_handle(to_screen(frame.top_left), kHandleSizePx, handle_color);
+        draw_square_handle(to_screen(frame.top_center), kHandleSizePx, handle_color);
+        draw_square_handle(to_screen(frame.top_right), kHandleSizePx, handle_color);
+        draw_square_handle(to_screen(frame.right_center), kHandleSizePx, handle_color);
+        draw_square_handle(to_screen(frame.bottom_right), kHandleSizePx, handle_color);
+        draw_square_handle(to_screen(frame.bottom_center), kHandleSizePx, handle_color);
+        draw_square_handle(to_screen(frame.bottom_left), kHandleSizePx, handle_color);
+        draw_square_handle(to_screen(frame.left_center), kHandleSizePx, handle_color);
 
-    const auto scale = kBasePixelsPerUnit * state_.zoom;
-    draw_radius_handle(to_screen(radius_handle_position(*selected, CornerRadiusHandle::TopLeft, scale)), kRadiusHandleSizePx, radius_color);
-    draw_radius_handle(to_screen(radius_handle_position(*selected, CornerRadiusHandle::TopRight, scale)), kRadiusHandleSizePx, radius_color);
-    draw_radius_handle(
-        to_screen(radius_handle_position(*selected, CornerRadiusHandle::BottomRight, scale)), kRadiusHandleSizePx, radius_color);
-    draw_radius_handle(
-        to_screen(radius_handle_position(*selected, CornerRadiusHandle::BottomLeft, scale)), kRadiusHandleSizePx, radius_color);
+        const auto scale = kBasePixelsPerUnit * state_.zoom;
+        draw_radius_handle(
+            to_screen(radius_handle_position(*selected, CornerRadiusHandle::TopLeft, scale)), kRadiusHandleSizePx, radius_color);
+        draw_radius_handle(
+            to_screen(radius_handle_position(*selected, CornerRadiusHandle::TopRight, scale)), kRadiusHandleSizePx, radius_color);
+        draw_radius_handle(
+            to_screen(radius_handle_position(*selected, CornerRadiusHandle::BottomRight, scale)), kRadiusHandleSizePx, radius_color);
+        draw_radius_handle(
+            to_screen(radius_handle_position(*selected, CornerRadiusHandle::BottomLeft, scale)), kRadiusHandleSizePx, radius_color);
+    } else {
+        draw_round_handle(to_screen(frame.top_left), kHandleSizePx, transform_color);
+        draw_round_handle(to_screen(frame.top_center), kHandleSizePx, transform_color);
+        draw_round_handle(to_screen(frame.top_right), kHandleSizePx, transform_color);
+        draw_round_handle(to_screen(frame.right_center), kHandleSizePx, transform_color);
+        draw_round_handle(to_screen(frame.bottom_right), kHandleSizePx, transform_color);
+        draw_round_handle(to_screen(frame.bottom_center), kHandleSizePx, transform_color);
+        draw_round_handle(to_screen(frame.bottom_left), kHandleSizePx, transform_color);
+        draw_round_handle(to_screen(frame.left_center), kHandleSizePx, transform_color);
+        painter.setPen(QPen(transform_color, 1.5));
+        painter.drawLine(to_screen(frame.center) + QPointF(-6.0, 0.0), to_screen(frame.center) + QPointF(6.0, 0.0));
+        painter.drawLine(to_screen(frame.center) + QPointF(0.0, -6.0), to_screen(frame.center) + QPointF(0.0, 6.0));
+    }
+    draw_selection_badge(painter, *selected);
+    painter.restore();
+}
+
+void ViewportWidget::draw_selection_badge(QPainter& painter, const polivex::core::RectangleEntity& rectangle) const
+{
+    const auto frame = make_frame_geometry(rectangle);
+    const auto to_screen = [this](const QPointF& point) { return scene_to_screen(point); };
+    QPolygonF polygon;
+    polygon << to_screen(frame.top_left) << to_screen(frame.top_right) << to_screen(frame.bottom_right)
+            << to_screen(frame.bottom_left);
+    const auto selection_bounds = polygon.boundingRect();
+    const auto text = selection_badge_text(rectangle);
+    const QFontMetrics metrics(painter.font());
+    const auto text_width = metrics.horizontalAdvance(text);
+    const auto badge_width = text_width + 20.0;
+    const auto badge_height = metrics.height() + 10.0;
+    const auto badge_margin = 8.0;
+    const auto badge_x = std::clamp(
+        selection_bounds.center().x() - badge_width / 2.0,
+        badge_margin,
+        std::max(badge_margin, width() - badge_width - badge_margin));
+    const auto badge_y = std::clamp(
+        selection_bounds.bottom() + 12.0,
+        badge_margin,
+        std::max(badge_margin, height() - badge_height - badge_margin));
+    const auto badge_rect = QRectF(badge_x, badge_y, badge_width, badge_height);
+
+    painter.save();
+    painter.setPen(Qt::NoPen);
+    painter.setBrush(QColor(25, 30, 36, 225));
+    painter.drawRoundedRect(badge_rect, 8.0, 8.0);
+    painter.setPen(QColor("#f5f8fb"));
+    painter.drawText(badge_rect, Qt::AlignCenter, text);
     painter.restore();
 }
 
@@ -1154,6 +1323,24 @@ std::optional<polivex::core::RectangleEntity> ViewportWidget::selected_rectangle
 bool ViewportWidget::is_selected(polivex::core::EntityId entity_id) const
 {
     return std::find(selected_entity_ids_.begin(), selected_entity_ids_.end(), entity_id) != selected_entity_ids_.end();
+}
+
+QString ViewportWidget::selection_badge_text(const polivex::core::RectangleEntity& rectangle) const
+{
+    const auto frame = make_frame_geometry(rectangle);
+    const auto to_screen = [this](const QPointF& point) { return scene_to_screen(point); };
+    QPolygonF polygon;
+    polygon << to_screen(frame.top_left) << to_screen(frame.top_right) << to_screen(frame.bottom_right)
+            << to_screen(frame.bottom_left);
+    const auto screen_bounds = polygon.boundingRect();
+    const auto width_units = polivex::core::rectangle_width(rectangle.bounds);
+    const auto height_units = polivex::core::rectangle_height(rectangle.bounds);
+
+    return QString("%1 x %2 px  |  %3 x %4 u")
+        .arg(screen_bounds.width(), 0, 'f', 0)
+        .arg(screen_bounds.height(), 0, 'f', 0)
+        .arg(width_units, 0, 'f', 2)
+        .arg(height_units, 0, 'f', 2);
 }
 
 QRect ViewportWidget::navigation_cube_rect() const

@@ -4,237 +4,241 @@
 <context>
     <name>polivex::ui::MainWindow</name>
     <message>
-        <location filename="../../src/ui/main_window.cpp" line="625"/>
+        <location filename="../../src/ui/main_window.cpp" line="654"/>
         <source>Grid spacing</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/ui/main_window.cpp" line="626"/>
+        <location filename="../../src/ui/main_window.cpp" line="655"/>
         <source>Scene units per grid step:</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/ui/main_window.cpp" line="671"/>
+        <location filename="../../src/ui/main_window.cpp" line="700"/>
         <source>Polivex - %1</source>
         <translation>Polivex - %1</translation>
     </message>
     <message>
-        <location filename="../../src/ui/main_window.cpp" line="673"/>
         <source>Active document: %1
 Modified: %2
 
 Vector rectangles: %3
 Sketch rectangles: %4</source>
-        <translation>Active document: %1
+        <translation type="vanished">Active document: %1
 Modified: %2
 
 Vector rectangles: %3
 Sketch rectangles: %4</translation>
     </message>
     <message>
-        <location filename="../../src/ui/main_window.cpp" line="676"/>
+        <location filename="../../src/ui/main_window.cpp" line="702"/>
+        <source>Active document: %1 | Modified: %2 | Vector: %3 | Sketch: %4</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../../src/ui/main_window.cpp" line="705"/>
         <source>yes</source>
         <translation>yes</translation>
     </message>
     <message>
-        <location filename="../../src/ui/main_window.cpp" line="677"/>
+        <location filename="../../src/ui/main_window.cpp" line="706"/>
         <source>no</source>
         <translation>no</translation>
     </message>
     <message>
-        <location filename="../../src/ui/main_window.cpp" line="700"/>
+        <location filename="../../src/ui/main_window.cpp" line="729"/>
         <source>Vector layer</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/ui/main_window.cpp" line="701"/>
+        <location filename="../../src/ui/main_window.cpp" line="730"/>
         <source>Sketch layer</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/ui/main_window.cpp" line="729"/>
+        <location filename="../../src/ui/main_window.cpp" line="758"/>
         <source>&amp;File</source>
         <translation>&amp;File</translation>
     </message>
     <message>
-        <location filename="../../src/ui/main_window.cpp" line="730"/>
+        <location filename="../../src/ui/main_window.cpp" line="759"/>
         <source>&amp;New</source>
         <translation>&amp;New</translation>
     </message>
     <message>
-        <location filename="../../src/ui/main_window.cpp" line="731"/>
+        <location filename="../../src/ui/main_window.cpp" line="760"/>
         <source>E&amp;xit</source>
         <translation>E&amp;xit</translation>
     </message>
     <message>
-        <location filename="../../src/ui/main_window.cpp" line="732"/>
+        <location filename="../../src/ui/main_window.cpp" line="761"/>
         <source>&amp;View</source>
         <translation>&amp;View</translation>
     </message>
     <message>
-        <location filename="../../src/ui/main_window.cpp" line="733"/>
+        <location filename="../../src/ui/main_window.cpp" line="762"/>
         <source>Language</source>
         <translation>Language</translation>
     </message>
     <message>
-        <location filename="../../src/ui/main_window.cpp" line="734"/>
+        <location filename="../../src/ui/main_window.cpp" line="763"/>
         <source>Workspace</source>
         <translation>Workspace</translation>
     </message>
     <message>
-        <location filename="../../src/ui/main_window.cpp" line="735"/>
+        <location filename="../../src/ui/main_window.cpp" line="764"/>
         <source>Camera</source>
         <translation>Camera</translation>
     </message>
     <message>
-        <location filename="../../src/ui/main_window.cpp" line="736"/>
+        <location filename="../../src/ui/main_window.cpp" line="765"/>
         <source>English</source>
         <translation>English</translation>
     </message>
     <message>
-        <location filename="../../src/ui/main_window.cpp" line="737"/>
+        <location filename="../../src/ui/main_window.cpp" line="766"/>
         <source>Russian</source>
         <translation>Russian</translation>
     </message>
     <message>
-        <location filename="../../src/ui/main_window.cpp" line="738"/>
+        <location filename="../../src/ui/main_window.cpp" line="767"/>
         <source>Vector</source>
         <translation>Vector</translation>
     </message>
     <message>
-        <location filename="../../src/ui/main_window.cpp" line="739"/>
+        <location filename="../../src/ui/main_window.cpp" line="768"/>
         <source>Sketch</source>
         <translation>Sketch</translation>
     </message>
     <message>
-        <location filename="../../src/ui/main_window.cpp" line="740"/>
+        <location filename="../../src/ui/main_window.cpp" line="769"/>
         <source>Model</source>
         <translation>Model</translation>
     </message>
     <message>
-        <location filename="../../src/ui/main_window.cpp" line="741"/>
-        <location filename="../../src/ui/main_window.cpp" line="774"/>
+        <location filename="../../src/ui/main_window.cpp" line="770"/>
         <source>Top</source>
         <translation>Top</translation>
     </message>
     <message>
-        <location filename="../../src/ui/main_window.cpp" line="742"/>
+        <location filename="../../src/ui/main_window.cpp" line="771"/>
         <source>Front</source>
         <translation>Front</translation>
     </message>
     <message>
-        <location filename="../../src/ui/main_window.cpp" line="743"/>
+        <location filename="../../src/ui/main_window.cpp" line="772"/>
         <source>Right</source>
         <translation>Right</translation>
     </message>
     <message>
-        <location filename="../../src/ui/main_window.cpp" line="744"/>
+        <location filename="../../src/ui/main_window.cpp" line="773"/>
         <source>Isometric</source>
         <translation>Isometric</translation>
     </message>
     <message>
-        <location filename="../../src/ui/main_window.cpp" line="745"/>
+        <location filename="../../src/ui/main_window.cpp" line="774"/>
         <source>Rectangle</source>
         <translation>Rectangle</translation>
     </message>
     <message>
-        <location filename="../../src/ui/main_window.cpp" line="746"/>
+        <location filename="../../src/ui/main_window.cpp" line="775"/>
         <source>Show Grid</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/ui/main_window.cpp" line="747"/>
+        <location filename="../../src/ui/main_window.cpp" line="776"/>
         <source>Grid Spacing...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/ui/main_window.cpp" line="748"/>
+        <location filename="../../src/ui/main_window.cpp" line="777"/>
         <source>Transparent Background</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/ui/main_window.cpp" line="749"/>
+        <location filename="../../src/ui/main_window.cpp" line="778"/>
         <source>Background Color...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/ui/main_window.cpp" line="750"/>
+        <location filename="../../src/ui/main_window.cpp" line="779"/>
         <source>Bring to Front</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/ui/main_window.cpp" line="751"/>
+        <location filename="../../src/ui/main_window.cpp" line="780"/>
         <source>Send to Back</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/ui/main_window.cpp" line="752"/>
+        <location filename="../../src/ui/main_window.cpp" line="781"/>
         <source>Move Up</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/ui/main_window.cpp" line="753"/>
+        <location filename="../../src/ui/main_window.cpp" line="782"/>
         <source>Move Down</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/ui/main_window.cpp" line="754"/>
+        <location filename="../../src/ui/main_window.cpp" line="783"/>
         <source>Align Left</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/ui/main_window.cpp" line="755"/>
+        <location filename="../../src/ui/main_window.cpp" line="784"/>
         <source>Align Right</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/ui/main_window.cpp" line="757"/>
+        <location filename="../../src/ui/main_window.cpp" line="786"/>
         <source>Align Horizontal Center</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/ui/main_window.cpp" line="758"/>
+        <location filename="../../src/ui/main_window.cpp" line="787"/>
         <source>Align Top</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/ui/main_window.cpp" line="759"/>
+        <location filename="../../src/ui/main_window.cpp" line="788"/>
         <source>Align Bottom</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/ui/main_window.cpp" line="761"/>
+        <location filename="../../src/ui/main_window.cpp" line="790"/>
         <source>Align Vertical Middle</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/ui/main_window.cpp" line="763"/>
+        <location filename="../../src/ui/main_window.cpp" line="792"/>
         <source>Distribute Horizontally</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/ui/main_window.cpp" line="765"/>
+        <location filename="../../src/ui/main_window.cpp" line="794"/>
         <source>Distribute Vertically</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/ui/main_window.cpp" line="766"/>
+        <location filename="../../src/ui/main_window.cpp" line="795"/>
         <source>File</source>
         <translation>File</translation>
     </message>
     <message>
-        <location filename="../../src/ui/main_window.cpp" line="767"/>
-        <source>Structure</source>
+        <location filename="../../src/ui/main_window.cpp" line="800"/>
+        <source>Drag layers to reorder them. Double-click to rename. Click the selected object again to switch handles.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/ui/main_window.cpp" line="768"/>
+        <location filename="../../src/ui/main_window.cpp" line="796"/>
         <source>Layers</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/ui/main_window.cpp" line="834"/>
-        <location filename="../../src/ui/main_window.cpp" line="881"/>
+        <location filename="../../src/ui/main_window.cpp" line="797"/>
+        <location filename="../../src/ui/main_window.cpp" line="854"/>
+        <location filename="../../src/ui/main_window.cpp" line="901"/>
         <source>Properties</source>
         <translation type="unfinished"></translation>
     </message>
@@ -243,44 +247,22 @@ Sketch rectangles: %4</translation>
         <translation type="vanished">Browser</translation>
     </message>
     <message>
-        <location filename="../../src/ui/main_window.cpp" line="769"/>
         <source>Inspector</source>
-        <translation>Inspector</translation>
+        <translation type="vanished">Inspector</translation>
     </message>
     <message>
-        <location filename="../../src/ui/main_window.cpp" line="771"/>
-        <source>Double-click a layer to rename it. Use the buttons to change order.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../../src/ui/main_window.cpp" line="775"/>
-        <source>Up</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../../src/ui/main_window.cpp" line="776"/>
-        <source>Down</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../../src/ui/main_window.cpp" line="777"/>
-        <source>Bottom</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../../src/ui/main_window.cpp" line="831"/>
+        <location filename="../../src/ui/main_window.cpp" line="851"/>
         <source>%1 objects selected</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/ui/main_window.cpp" line="832"/>
+        <location filename="../../src/ui/main_window.cpp" line="852"/>
         <source>Choose Rectangle, then drag on the canvas to create an object.</source>
         <translation>Choose Rectangle, then drag on the canvas to create an object.</translation>
     </message>
     <message>
-        <location filename="../../src/ui/main_window.cpp" line="778"/>
         <source>Ready</source>
-        <translation>Ready</translation>
+        <translation type="vanished">Ready</translation>
     </message>
     <message>
         <source>Sketch rectangle on the XY plane. Dimensions and snapping come next.</source>
@@ -291,28 +273,28 @@ Sketch rectangles: %4</translation>
         <translation type="vanished">Selected vector rectangle</translation>
     </message>
     <message>
-        <location filename="../../src/ui/main_window.cpp" line="863"/>
-        <location filename="../../src/ui/main_window.cpp" line="915"/>
+        <location filename="../../src/ui/main_window.cpp" line="883"/>
+        <location filename="../../src/ui/main_window.cpp" line="935"/>
         <source>Fill color</source>
         <translation>Fill color</translation>
     </message>
     <message>
-        <location filename="../../src/ui/main_window.cpp" line="879"/>
+        <location filename="../../src/ui/main_window.cpp" line="899"/>
         <source>Vector: %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/ui/main_window.cpp" line="880"/>
+        <location filename="../../src/ui/main_window.cpp" line="900"/>
         <source>Sketch: %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/ui/main_window.cpp" line="916"/>
+        <location filename="../../src/ui/main_window.cpp" line="936"/>
         <source>No fill</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../../src/ui/main_window.cpp" line="936"/>
+        <location filename="../../src/ui/main_window.cpp" line="956"/>
         <source>Untitled</source>
         <translation>Untitled</translation>
     </message>

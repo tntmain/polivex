@@ -32,6 +32,7 @@ public:
     [[nodiscard]] bool send_rectangle_to_back(EntityId id) noexcept;
     [[nodiscard]] bool move_rectangle_up(EntityId id) noexcept;
     [[nodiscard]] bool move_rectangle_down(EntityId id) noexcept;
+    [[nodiscard]] bool reorder_rectangles(std::span<const EntityId> ordered_ids) noexcept;
 
 private:
     [[nodiscard]] RectangleEntity* rectangle_mutable(EntityId id) noexcept;
